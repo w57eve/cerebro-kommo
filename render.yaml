@@ -1,0 +1,24 @@
+# Blueprint de Render. Si conectás el repo con "Blueprint", Render lee esto y
+# crea el servicio solo. También podés crear un "Web Service" a mano y usar el
+# mismo Start Command de abajo.
+services:
+  - type: web
+    name: cerebro-shoppingasia
+    runtime: python
+    plan: starter            # ~US$7/mes, siempre prendido (no se duerme)
+    region: oregon
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health
+    envVars:
+      # Los VALORES se cargan en el panel de Render (Environment), NO acá.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: KOMMO_SUBDOMAIN
+        sync: false
+      - key: KOMMO_TOKEN
+        sync: false
+      - key: KOMMO_SECRET_KEY
+        sync: false
+      - key: CATEGORIAS_INDEX
+        value: "7"

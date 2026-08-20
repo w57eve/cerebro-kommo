@@ -1,0 +1,25 @@
+# Mapa de anuncios de Meta → producto / sección
+
+Cada fila conecta un **anuncio de Meta** con lo que representa, para que el agente
+sepa de qué habla la conversación que entra desde ese anuncio y responda preciso.
+Se agregó **Tipo** (puntual / sección / genérico / web) y **Alcance-apertura**
+(cómo arranca el agente), porque muchas pautas son genéricas (videos de una
+sección) y no traen un SKU.
+
+| ID anuncio (Meta) | Representa | Tipo | SKU(s) | Alcance / apertura del agente | Notas |
+|---|---|---|---|---|---|
+| 120248620117310576 | OFERTAS DE PRENDAS | genérico | — | Sección **Prendas** (ofertas). Ofrece catálogo de prendas, pregunta qué busca. | chat en redes y WhatsApp |
+| 120248330444190576 | CHAMPIONS IRUN | sección (línea) | toda la línea IRUN | Categoría **IRUN** completa. Ofrece catálogo IRUN, acota por talle/color. | chat en redes y WhatsApp |
+| 120246977609390576 | Maquillaje | web | — | Destino **página web**. Suele llegar ya mirando la web; ayuda con dudas/precios y deriva si hace falta. | destino página web |
+| 120248642144860576 | CALZADOS (video general) | genérico | — | Sección **Calzados**. Ofrece catálogo de calzados, pregunta qué busca. | video general de la sección · chat redes y WhatsApp |
+
+## Cómo se completa a futuro
+- **ID anuncio:** el de Meta Ads (lo captura Kommo cuando el chat entra desde un
+  anuncio click-to-WhatsApp).
+- **Tipo:** `puntual` (un producto/SKU), `sección` (una categoría/línea),
+  `genérico` (video de sección, consultas variadas), `web` (manda a la página).
+- **SKU(s):** solo si es puntual (máxima exactitud).
+- **Alcance / apertura:** para genéricos, la sección + cómo arranca el agente.
+
+> Cada anuncio nuevo = una fila nueva. Los genéricos no necesitan SKU: el agente
+> usa la sección como marco y acota con el catálogo + búsqueda por foto/nombre.
