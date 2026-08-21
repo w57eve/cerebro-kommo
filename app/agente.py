@@ -32,6 +32,12 @@ es ayudar al cliente a encontrar lo que busca y avanzar la venta.
 Tono: hablás de "vos" (voseo paraguayo, cercano). Te adaptás al cliente: si es
 formal, acompañás; si es relajado, relajado. Emojis con moderación.
 
+Saludos (importante para no parecer un bot): si te paso el nombre del cliente,
+saludalo por su nombre UNA sola vez. Y si el cliente saluda Y encima pregunta algo
+("buenas, tienen cafetera?"), NO respondas solo el saludo: saludá y en el MISMO
+mensaje contestá o mostrale los productos. Nunca devuelvas "¿en qué le servimos?"
+como única respuesta cuando ya te preguntaron algo concreto.
+
 Cómo trabajás (MUY IMPORTANTE):
 - Tenés acceso al CATÁLOGO COMPLETO (nombre, precio y foto de casi todos los
   productos). Cuando el cliente pregunta por algo, tu primer reflejo es BUSCAR y
@@ -68,54 +74,129 @@ def _sistema() -> str:
 SISTEMA = _sistema()
 
 
-async def procesar(mensaje: str, ad_id: str = "") -> dict:
-    """Decide la respuesta. Devuelve:
-       {"texto": str, "derivar": bool}
+def _nombre_corto(nombre: str) -> str:
+    nombre = (nombre or "").strip()
+    if not nombre or nombre.lower() in ("none", "null", "{{contact.name}}"):
+        return ""
+    return nombre.split()[0].capitalize()   # solo el primer nombre
+
+
+def _bienvenida(nombre: str = "") -> str:
+    n = _nombre_corto(nombre)
+    hola = f"¡Hola {n}! " if n else "¡Hola! "
+    return (hola + "Bienvenido/a a Shopping Asia 🙌 ¿Qué estás buscando? "
+            "Decime el producto y te paso precio y foto.")
+
+
+def _prefijo_saludo(saludo: bool, nombre: str = "") -> str:
+    if not saludo:
+        return ""
+    n = _nombre_corto(nombre)
+    return f"¡Hola {n}! " if n else "¡Hola! "
+
+
+async def procesar(mensaje: str, ad_id: str = "", nombre: str = "") -> dict:
+    """Decide la respuesta. Devuelve {"texto": str, "derivar": bool}.
+
+    Clave para no parecer un bot: si el cliente saluda Y pregunta algo en el
+    mismo mensaje, saludamos (por su nombre si lo tenemos) y en el MISMO mensaje
+    contestamos/mostramos los productos. No devolvemos solo un saludo.
     """
-    # 1) Reglas de 0 tokens
+    saludo = reglas.es_saludo(mensaje)
+
+    # Solo un saludo (sin pedido) -> bienvenida y a esperar el pedido.
+    if reglas.solo_saludo(mensaje):
+        return {"texto": _bienvenida(nombre), "derivar": False}
+
+    pref = _prefijo_saludo(saludo, nombre)
+
+    # 1) Reglas de 0 tokens (FAQ / derivar). Nota: el saludo ya NO corta acá.
     r = reglas.responder(mensaje)
     if r and r["tipo"] == "texto":
-        return {"texto": r["texto"], "derivar": False}
+        return {"texto": pref + r["texto"], "derivar": False}
     if r and r["tipo"] == "derivar":
         sku = productos.extraer_sku(mensaje) or ""
         d = vendedores.mensaje_derivacion(sku=sku, consulta=mensaje[:180])
-        return {"texto": d["texto"], "derivar": True}
+        return {"texto": pref + d["texto"], "derivar": True}
 
-    # 2) Datos de producto (para dárselos al LLM como contexto confirmado)
+    # 2) Datos de producto (contexto para el LLM y para la respuesta templada)
     contexto = ""
+    n_corto = _nombre_corto(nombre)
+    if n_corto:
+        contexto += (f"El cliente se llama {n_corto}. Si saludó, devolvé el "
+                     "saludo por su nombre UNA vez.\n")
     ctx_ad = conocimiento.contexto_anuncio(ad_id)
     if ctx_ad:
         contexto += ctx_ad + "\n"
 
+    sugeridos = []
     sku = productos.extraer_sku(mensaje)
     if sku:
         it = await productos.por_sku(sku)
         if it:
+            sugeridos = [it]
             contexto += "Producto confirmado (podés dar precio/foto):\n" + productos.a_texto(it) + "\n"
         else:
-            contexto += (f"El SKU {sku} no está en el índice del sitio. No "
-                         "afirmes que existe; ofrecé buscarlo o derivar.\n")
+            contexto += (f"El SKU {sku} no está en el catálogo. No afirmes que "
+                         "existe; ofrecé buscarlo o derivar.\n")
     else:
-        cand = await productos.buscar(mensaje, limite=3)
+        cand = await productos.buscar(mensaje, limite=4)
+        sugeridos = cand
         if len(cand) == 1:
             contexto += "Posible producto (confirmá con el cliente):\n" + productos.a_texto(cand[0]) + "\n"
         elif len(cand) > 1:
-            contexto += ("Varios candidatos parecidos (mostralos y pedí que "
+            contexto += ("Varios candidatos (mostrá 2–3 con su foto y pedí que "
                          "elija, no adivines):\n")
             contexto += "\n".join(productos.a_texto(c) for c in cand) + "\n"
 
-    # 3) IA (solo si hay API key; si no, respuesta segura)
-    if not llm.disponible():
-        return {"texto": FALLBACK, "derivar": False}
-    texto = await asyncio.to_thread(llm.responder, SISTEMA, contexto, mensaje)
-    if not texto:
-        return {"texto": FALLBACK, "derivar": False}
-    return {"texto": texto, "derivar": False}
+    # 3) IA para redactar (tono humano). Si no hay IA o falla, respuesta templada.
+    if llm.disponible():
+        texto = await asyncio.to_thread(llm.responder, SISTEMA, contexto, mensaje)
+        if texto:
+            return {"texto": texto, "derivar": False}
+
+    # Sin IA: si hay productos, los ofrecemos (0 tokens), con saludo si aplica.
+    if sugeridos:
+        return {"texto": pref + _respuesta_productos(sugeridos), "derivar": False}
+    if saludo:
+        return {"texto": _bienvenida(nombre), "derivar": False}
+    return {"texto": FALLBACK, "derivar": False}
+
+
+def _precio_txt(it: dict) -> str:
+    p = it.get("precio")
+    if p in (None, "", 0):
+        return "consultá el precio"
+    try:
+        return f"{int(p):,} gs".replace(",", ".")
+    except Exception:
+        return f"{p} gs"
+
+
+def _respuesta_productos(items: list) -> str:
+    """Respuesta armada (sin IA) para ofrecer productos con foto y precio."""
+    if len(items) == 1:
+        it = items[0]
+        t = f"Creo que buscás esto: *{it['nombre']}* — {_precio_txt(it)}."
+        if it.get("imagenes"):
+            t += f"\n📷 {it['imagenes'][0]}"
+        t += "\n¿Es este? Si querés te doy más datos o te paso con un vendedor 🙂"
+        return t
+    t = "Encontré estas opciones 👇\n"
+    for it in items[:3]:
+        t += f"\n• *{it['nombre']}* — {_precio_txt(it)}"
+        if it.get("imagenes"):
+            t += f"\n  📷 {it['imagenes'][0]}"
+    t += "\n\n¿Cuál te interesa?"
+    return t
 
 
 async def procesar_y_responder(mensaje: str, return_url: str, data: dict):
     """Tarea de fondo: decide y contesta a Kommo. Si corresponde derivar, manda
     también (en el mismo mensaje) el enlace al vendedor de turno."""
     ad_id = kommo.extraer_ad_id(data)
-    res = await procesar(mensaje, ad_id=ad_id)
+    nombre = ""
+    if isinstance(data, dict):
+        nombre = data.get("nombre") or data.get("name") or ""
+    res = await procesar(mensaje, ad_id=ad_id, nombre=nombre)
     await kommo.responder(return_url, res["texto"])

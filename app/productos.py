@@ -15,6 +15,7 @@ Acá se baja el catálogo, se mantiene en memoria y se arma el índice.
 """
 
 import asyncio
+import html
 import re
 import time
 
@@ -45,7 +46,7 @@ async def _descargar():
     for sku, v in data.items():
         if not isinstance(v, list) or not v:
             continue
-        nombre = v[0] or ""
+        nombre = html.unescape(v[0] or "").strip()   # &#039; -> ' , &quot; -> "
         precio = v[1] if len(v) > 1 else None
         foto = v[2] if len(v) > 2 else ""
         it = {

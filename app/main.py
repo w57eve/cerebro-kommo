@@ -56,8 +56,12 @@ PAGINA_PRUEBA = """<!doctype html>
 </style></head><body>
 <h1>🧠 Probar el agente</h1>
 <p class="muted">Modo prueba: no toca Kommo ni clientes reales. Escribí como si fueras
-un cliente y mirá qué respondería.</p>
+un cliente y mirá qué respondería. (En Kommo, el nombre del cliente lo toma solo.)</p>
 
+<div class="fila">
+  <input id="nom" type="text" autocomplete="off"
+         placeholder="Nombre del cliente (opcional, ej. María)">
+</div>
 <div class="fila">
   <input id="msg" type="text" autofocus autocomplete="off"
          placeholder="Escribí un mensaje y apretá Enter...">
@@ -84,11 +88,12 @@ un cliente y mirá qué respondería.</p>
     if(texto !== undefined){ inp.value = texto; }
     if(!msg){ box.textContent = 'Escribí algo primero.'; inp.focus(); return; }
     box.textContent = 'Pensando...';
+    var nom = (document.getElementById('nom').value || '').trim();
     try{
       var r = await fetch('/probar', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({mensaje: msg})
+        body: JSON.stringify({mensaje: msg, nombre: nom})
       });
       var d = await r.json();
       box.textContent = (d.derivar ? '↪️ (deriva a vendedor)\\n\\n' : '') + (d.texto || JSON.stringify(d));
@@ -150,14 +155,15 @@ async def probar(request: Request):
     body = await request.json()
     mensaje = body.get("mensaje", "")
     ad_id = body.get("ad_id", "")
-    res = await agente.procesar(mensaje, ad_id=ad_id)
+    nombre = body.get("nombre", "")
+    res = await agente.procesar(mensaje, ad_id=ad_id, nombre=nombre)
     return res
 
 
 @app.get("/probar")
-async def probar_get(mensaje: str = "", ad_id: str = ""):
+async def probar_get(mensaje: str = "", ad_id: str = "", nombre: str = ""):
     """Prueba rápida desde el navegador: /probar?mensaje=hacen%20envios"""
     if not mensaje:
         return JSONResponse({"error": "pasá ?mensaje=tu%20mensaje"})
-    res = await agente.procesar(mensaje, ad_id=ad_id)
+    res = await agente.procesar(mensaje, ad_id=ad_id, nombre=nombre)
     return res

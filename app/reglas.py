@@ -24,15 +24,38 @@ def _norm(t: str) -> str:
     return t.lower().strip()
 
 
+# ── Saludos ──
+SALUDOS = ["hola", "holis", "buenas", "buen dia", "buenos dias", "buenas tardes",
+           "buenas noches", "que tal", "buenass", "hello", "ola"]
+
+# Palabras que NO cuentan como "consulta" (saludo + cortesía + charla) para
+# decidir si el mensaje es SOLO un saludo o si además trae un pedido real.
+_IGNORAR = {
+    "hola", "holis", "buenas", "buenos", "buen", "dia", "dias", "tarde",
+    "tardes", "noche", "noches", "que", "tal", "como", "estan", "estas",
+    "esta", "va", "todo", "bien", "gracias", "por", "favor", "porfa",
+    "porfavor", "che", "ok", "saludos", "disculpe", "disculpa", "perdon",
+    "amigo", "amiga", "senor", "senora", "seno", "estimado", "estimada",
+    "hello", "hi", "ola", "y", "el", "la", "me", "puedo", "podria",
+}
+
+
+def es_saludo(mensaje: str) -> bool:
+    n = _norm(mensaje)
+    return any(s in n for s in SALUDOS)
+
+
+def solo_saludo(mensaje: str) -> bool:
+    """True si el mensaje es SOLO un saludo/cortesía (sin pedido concreto)."""
+    n = _norm(mensaje)
+    n = re.sub(r"[^\w\s]", " ", n)
+    palabras = [w for w in n.split() if len(w) > 1 and w not in _IGNORAR]
+    return len(palabras) == 0
+
+
 # Cada regla: (lista de patrones/keywords, respuesta). Si CUALQUIER patrón
 # aparece en el mensaje normalizado, matchea.
 REGLAS = [
-    (
-        ["hola", "buenas", "buen dia", "buenos dias", "buenas tardes",
-         "buenas noches", "que tal"],
-        "¡Hola! Bienvenido/a a Shopping Asia 🙌 ¿En qué te puedo ayudar? "
-        "Contame qué producto estás buscando y te paso precio y foto.",
-    ),
     (
         ["horario", "abierto", "abren", "cierran", "atienden", "hasta que hora",
          "feriado", "domingo", "que hora abren"],

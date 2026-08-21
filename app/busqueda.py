@@ -32,6 +32,13 @@ STOP = {
     "de", "para", "con", "y", "el", "la", "los", "las", "un", "una", "unos",
     "unas", "en", "por", "al", "del", "o", "su", "sus", "que", "es", "mi",
     "oc", "tipo", "estilo", "modelo",
+    # saludos / relleno / verbos de consulta (para que no sean el "sustantivo")
+    "hola", "buenas", "buenos", "buen", "dia", "dias", "tarde", "tardes",
+    "noche", "noches", "gracias", "favor", "porfa", "porfavor", "che",
+    "tienen", "tenes", "tienes", "hay", "quiero", "busco", "buscando",
+    "necesito", "queria", "querria", "me", "gustaria", "tenian", "vende",
+    "venden", "consulta", "consultar", "precio", "cuanto", "sale", "vale",
+    "como", "estan", "tal", "ver", "algun", "alguna",
 }
 
 # ── Nombres que indican ACCESORIO (no el producto en sí). Si el nombre empieza
@@ -110,6 +117,11 @@ def tokenizar(t: str):
     t = re.sub(r"(\d)([a-z])", r"\1 \2", t)
     toks = re.findall(r"[a-z0-9]+", t)
     return [singular(w) for w in toks if len(w) >= 2]
+
+
+# Como los tokens se comparan en singular, agregamos las formas singulares de las
+# stopwords (ej. 'buenas'->'buena', 'dias'->'dia') para que no se cuelen.
+STOP = STOP | {singular(w) for w in STOP}
 
 
 def _construir_exp():
