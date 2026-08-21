@@ -42,6 +42,13 @@ class Config:
     GET_PRODUCTOS = os.getenv(
         "GET_PRODUCTOS", "https://www.shoppingasia.com.py/get-productos"
     )
+    # Catálogo COMPLETO consolidado (nombre+precio+foto de todos los productos),
+    # publicado por la app de precios. El cerebro lo lee de acá. Puede ser una URL
+    # http(s) o una ruta local (para pruebas).
+    CATALOGO_JSON_URL = os.getenv(
+        "CATALOGO_JSON_URL",
+        "https://precios.shoppingasia.com.py/datos/_catalogo.json",
+    )
     # Categorías a indexar del sitio (IDs separados por coma). 7 = calzados.
     # Se amplía agregando IDs: "7,3,10,..."
     CATEGORIAS = os.getenv("CATEGORIAS_INDEX", "7")

@@ -1,16 +1,18 @@
 # -*- coding: utf-8 -*-
 """
-Búsqueda de precio / nombre / foto de productos, usando SOLO datos públicos del
-sitio (endpoint get-productos). Nunca usa el panel de PORTA ni credenciales.
+Catálogo de productos del cerebro.
 
-Estrategia eficiente: baja los productos de las categorías configuradas una vez
-y los mantiene en memoria, refrescando cada REFRESCO_MIN minutos. Después las
-búsquedas por SKU o por nombre son instantáneas y no pegan al sitio en cada
-mensaje.
+Fuente: el catálogo COMPLETO de Shopping Asia, que la app de precios ya publica
+(nombre + precio + foto de cada producto, sincronizado desde PORTA y expuesto de
+forma pública). Se lee de un único archivo consolidado:
 
-NOTA para verificar en vivo: los nombres de campos del JSON (precio, nombre)
-pueden variar. Acá se leen de forma defensiva probando varios nombres comunes.
-Si algo no viene, se deja vacío y el agente deriva en vez de inventar.
+    https://precios.shoppingasia.com.py/datos/_catalogo.json
+    formato: { "SKU": ["NOMBRE", precio, "URL_FOTO"], ... }
+
+Nunca usa el panel de PORTA ni credenciales: son datos ya públicos.
+
+Estrategia: se baja el catálogo una vez y se mantiene en memoria, refrescando
+cada REFRESCO_MIN minutos. Las búsquedas por SKU o por nombre son instantáneas.
 """
 
 import asyncio
@@ -25,66 +27,45 @@ _cache = {"ts": 0.0, "por_sku": {}, "items": []}
 _lock = asyncio.Lock()
 
 
-def _precio(p: dict):
-    for k in ("precio", "precio_venta", "precio_final", "precio_oferta", "monto"):
-        v = p.get(k)
-        if v not in (None, "", 0, "0"):
-            return v
-    return None
-
-
-def _nombre(p: dict) -> str:
-    for k in ("nombre", "descripcion", "titulo", "articulo", "detalle"):
-        v = p.get(k)
-        if v:
-            return str(v)
-    return ""
-
-
-def _imagenes(p: dict):
-    imgs = []
-    for i in (p.get("imagenes") or []):
-        u = i.get("ubicacion") or i.get("url") or i.get("src") if isinstance(i, dict) else i
-        if u:
-            imgs.append(u)
-    return imgs[:3]  # tope de 3 ángulos (igual criterio que el verificador)
+def _norm(t: str) -> str:
+    import unicodedata
+    t = unicodedata.normalize("NFD", t or "")
+    t = "".join(c for c in t if unicodedata.category(c) != "Mn")
+    return t.lower()
 
 
 async def _descargar():
+    """Baja el catálogo consolidado (o lo lee de un archivo local si la URL es
+    una ruta). Devuelve (por_sku, items)."""
+    url = cfg.CATALOGO_JSON_URL
+    if url.startswith("http"):
+        async with httpx.AsyncClient(
+            timeout=60, headers={"User-Agent": "cerebro-shoppingasia"}
+        ) as cli:
+            r = await cli.get(url)
+            r.raise_for_status()
+            data = r.json()
+    else:  # ruta local (para pruebas)
+        import json
+        from pathlib import Path
+        data = json.loads(Path(url).read_text(encoding="utf-8"))
+
     por_sku, items = {}, []
-    cats = [c.strip() for c in cfg.CATEGORIAS.split(",") if c.strip()]
-    async with httpx.AsyncClient(timeout=25, headers={"User-Agent": "cerebro-shoppingasia"}) as cli:
-        for cat in cats:
-            page = 1
-            while page <= 200:
-                url = (
-                    f"{cfg.GET_PRODUCTOS}?page={page}&categoria={cat}"
-                    "&precio=0&ordenar_por=2&marcas=&categorias="
-                    "&categorias_top=&porcentajes=&atributos="
-                )
-                try:
-                    r = await cli.get(url)
-                    if r.status_code != 200:
-                        break
-                    data = r.json()
-                except Exception:
-                    break
-                lote = ((data.get("paginacion") or {}).get("data")) or []
-                if not lote:
-                    break
-                for p in lote:
-                    sku = str(p.get("codigo_articulo") or p.get("sku") or "").strip()
-                    if not sku:
-                        continue
-                    it = {
-                        "sku": sku,
-                        "nombre": _nombre(p),
-                        "precio": _precio(p),
-                        "imagenes": _imagenes(p),
-                    }
-                    por_sku[sku] = it
-                    items.append(it)
-                page += 1
+    for sku, v in data.items():
+        if not isinstance(v, list) or not v:
+            continue
+        nombre = v[0] or ""
+        precio = v[1] if len(v) > 1 else None
+        foto = v[2] if len(v) > 2 else ""
+        it = {
+            "sku": str(sku),
+            "nombre": nombre,
+            "precio": precio,
+            "imagenes": [foto] if foto and "placeholder" not in str(foto) else [],
+            "_n": _norm(nombre),
+        }
+        por_sku[str(sku)] = it
+        items.append(it)
     return por_sku, items
 
 
@@ -101,12 +82,12 @@ async def _asegurar():
             if por_sku:
                 _cache.update(ts=time.time(), por_sku=por_sku, items=items)
         except Exception:
-            pass  # si falla la descarga, seguimos con lo que haya (o vacío)
+            pass  # si falla, seguimos con lo que haya (o vacío)
 
 
 def extraer_sku(texto: str):
     """SKU de Shopping Asia: EAN que empieza con 7457006 + 6 dígitos. Si no hay,
-    intenta con cualquier número largo (8+ dígitos)."""
+    cualquier número largo (8+ dígitos)."""
     m = re.search(r"7457006\d{6}", texto or "")
     if m:
         return m.group(0)
@@ -119,21 +100,39 @@ async def por_sku(sku: str):
     return _cache["por_sku"].get(str(sku).strip())
 
 
-async def buscar(texto: str, limite: int = 3):
-    """Búsqueda simple por coincidencia de palabras en el nombre. Devuelve hasta
-    'limite' candidatos ordenados por cuántas palabras coinciden."""
+# Palabras muy comunes que no ayudan a buscar (para no traer miles de resultados).
+_STOP = {"para", "con", "los", "las", "una", "unos", "unas", "del", "por", "que",
+         "tienen", "tenes", "tenés", "hay", "busco", "quiero", "necesito", "algun",
+         "algún", "alguna", "producto", "productos", "precio", "cuanto", "cuánto",
+         "sale", "vale", "este", "esta", "esa", "ese", "color", "talle", "tamaño"}
+
+
+async def buscar(texto: str, limite: int = 4):
+    """Búsqueda por nombre. Devuelve hasta 'limite' productos ordenados por
+    cuántas palabras (útiles) del pedido aparecen en el nombre. Prefiere los que
+    tienen foto."""
     await _asegurar()
-    toks = [w for w in re.findall(r"\w+", (texto or "").lower()) if len(w) > 2]
+    toks = [w for w in re.findall(r"\w+", _norm(texto)) if len(w) > 2 and w not in _STOP]
     if not toks:
         return []
     res = []
     for it in _cache["items"]:
-        n = (it["nombre"] or "").lower()
+        n = it["_n"]
         score = sum(1 for w in toks if w in n)
         if score:
-            res.append((score, it))
-    res.sort(key=lambda x: -x[0])
-    return [it for _, it in res[:limite]]
+            # bonus si tiene foto (mejor para mostrar)
+            res.append((score, 1 if it["imagenes"] else 0, it))
+    if not res:
+        return []
+    res.sort(key=lambda x: (-x[0], -x[1]))
+    top = res[0][0]
+    # Solo devolvemos los que igualan el mejor puntaje (los más relevantes).
+    fuertes = [it for s, _, it in res if s == top]
+    return fuertes[:limite]
+
+
+def cantidad() -> int:
+    return len(_cache["items"])
 
 
 def a_texto(it: dict) -> str:
