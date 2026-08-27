@@ -190,6 +190,17 @@ async def diag():
              "foto": (c["imagenes"][0] if c.get("imagenes") else None)}
             for c in cand
         ]
+        # fetch CRUDO del catalogo para ver el error real de descarga
+        import httpx as _httpx
+        try:
+            async with _httpx.AsyncClient(timeout=30, headers={"User-Agent": "cerebro"}) as _cli:
+                _r = await _cli.get(cfg.CATALOGO_JSON_URL)
+            info["fetch_http"] = _r.status_code
+            info["fetch_bytes"] = len(_r.content)
+            info["fetch_muestra"] = _r.text[:180]
+        except Exception as _e:
+            info["fetch_error"] = f"{type(_e).__name__}: {_e}"
+
         items = productos._cache.get("items") or []
         if items:
             it0 = items[0]
