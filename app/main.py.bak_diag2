@@ -128,39 +128,20 @@ async def health():
 @app.post("/webhook")
 async def webhook(request: Request, bg: BackgroundTasks):
     """Lo llama Kommo. Respondemos 200 ya mismo y procesamos en segundo plano."""
-    import json as _json
-    from urllib.parse import parse_qs
-
-    raw = await request.body()
-    ctype = request.headers.get("content-type", "")
-    print(f"[WEBHOOK] ct={ctype!r} len={len(raw)} raw={raw[:700]!r}", flush=True)
-
-    body = {}
-    if raw:
-        try:
-            body = _json.loads(raw)
-        except Exception:
-            try:
-                q = parse_qs(raw.decode("utf-8", "replace"))
-                body = {k: (v[0] if v else "") for k, v in q.items()}
-            except Exception:
-                body = {}
-    if not isinstance(body, dict):
+    try:
+        body = await request.json()
+    except Exception:
         body = {}
 
-    token = body.get("token", "") or ""
-    data = body.get("data")
-    if not isinstance(data, dict):
-        data = {}
-    return_url = body.get("return_url", "") or ""
+    token = body.get("token", "")
+    data = body.get("data") or {}
+    return_url = body.get("return_url", "")
 
-    mensaje = data.get("message") or data.get("text") or ""
-    if not mensaje:
-        mensaje = body.get("data[message]") or body.get("message") or body.get("text") or ""
-    if not return_url:
-        return_url = body.get("data[return_url]") or ""
+    mensaje = ""
+    if isinstance(data, dict):
+        mensaje = data.get("message") or data.get("text") or ""
 
-    print(f"[WEBHOOK] parse | return_url={'si' if return_url else 'NO'} | "
+    print(f"[WEBHOOK] recibido | return_url={'si' if return_url else 'NO'} | "
           f"mensaje={mensaje!r} | keys={list(body.keys())}", flush=True)
 
     # NO bloqueamos por token: si no valida (secret/formato) avisamos y seguimos,
