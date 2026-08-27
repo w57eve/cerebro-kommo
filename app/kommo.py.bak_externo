@@ -12,7 +12,6 @@ El JWT viene firmado con la CLAVE SECRETA de la integración (KOMMO_SECRET_KEY);
 lo validamos para asegurarnos de que el pedido viene de Kommo y no de un tercero.
 """
 
-import os
 import httpx
 
 try:
@@ -66,36 +65,15 @@ async def responder(return_url: str, mensaje: str):
     cliente. Se manda como un ÚNICO mensaje (un solo cobro de WhatsApp)."""
     if not return_url or not mensaje:
         return False
-
-    # MODO de respuesta (se elige con la variable de entorno KOMMO_MODO):
-    #   "externo" (por defecto) -> handler send_external_message: manda UN mensaje
-    #                              real al cliente por su canal (WhatsApp). Sin limite
-    #                              de largo y sin necesitar pasos extra en el bot.
-    #   "data"    -> no manda handler; deja el texto en data.message para que un paso
-    #                "Enviar mensaje" del bot lo envie con {{json.message}}.
-    #   "show"    -> parte el texto en globitos de <=80c (handler show). Ultimo recurso.
-    modo = (os.getenv("KOMMO_MODO", "externo") or "externo").strip().lower()
-
-    if modo == "show":
-        trozos = _trocear(mensaje, 80, 10)
-        handlers = [{"handler": "show", "params": {"type": "text", "value": t}} for t in trozos]
-    elif modo == "data":
-        handlers = []  # el texto viaja solo en data.message; lo envia un paso del bot
-    else:  # "externo": send_external_message (el correcto para mensajes reales)
-        params = {
-            "message": {"type": "external", "text": mensaje},
-            "recipient": {"type": "main_contact", "way_of_communication": "over_all"},
-        }
-        canal = (os.getenv("KOMMO_CHANNEL_ID", "") or "").strip()
-        if canal:
-            try:
-                params["channels"] = [{"id": int(canal)}]
-            except Exception:
-                params["channels"] = [{"id": canal}]
-        handlers = [{"handler": "send_external_message", "params": params}]
-
-    payload = {"data": {"message": mensaje}, "execute_handlers": handlers}
-    print(f"[RESPONDER] modo={modo} | handlers={len(handlers)} | len_msg={len(mensaje)}", flush=True)
+    trozos = _trocear(mensaje, 80, 10)
+    payload = {
+        "data": {"message": mensaje},
+        "execute_handlers": [
+            {"handler": "show", "params": {"type": "text", "value": t}}
+            for t in trozos
+        ],
+    }
+    print(f"[RESPONDER] enviando {len(trozos)} trozo(s) (limite 80c)", flush=True)
     headers = {"Accept": "application/json"}
     if cfg.KOMMO_TOKEN:
         headers["Authorization"] = f"Bearer {cfg.KOMMO_TOKEN}"
