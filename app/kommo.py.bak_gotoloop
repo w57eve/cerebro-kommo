@@ -84,22 +84,11 @@ async def responder(return_url: str, mensaje: str):
         # una variable (KOMMO_GOTO_FINISH=1 para activarlo); si hiciera un loop, se
         # apaga poniendo la variable en 0. 'step' es obligatorio aunque type=finish.
         if (os.getenv("KOMMO_GOTO_FINISH", "") or "").strip().lower() in ("1", "si", "true", "on"):
-            # Kommo corre el bot UNA vez por conversacion. Para responder a TODOS los
-            # mensajes de una charla, el bot no debe TERMINAR sino quedar en BUCLE:
-            #   goto tipo "question" -> muestra la respuesta y ESPERA el proximo
-            #   mensaje del cliente; cuando llega, vuelve al paso 'step' (el del
-            #   widget) y re-ejecuta -> responde de nuevo. Seguro: no hace spam,
-            #   solo corre cuando el cliente escribe.
-            # Configurable por env para poder ajustar sin re-subir codigo:
-            #   KOMMO_GOTO_TIPO = question (bucle, default) | finish (terminar)
-            #   KOMMO_GOTO_STEP = numero del paso del widget (probar 1, si no 0 o 2)
-            _tipo = (os.getenv("KOMMO_GOTO_TIPO", "question") or "question").strip().lower()
             try:
                 _paso = int((os.getenv("KOMMO_GOTO_STEP", "1") or "1").strip())
             except Exception:
                 _paso = 1
-            handlers.append({"handler": "goto", "params": {"type": _tipo, "step": _paso}})
-            print(f"[RESPONDER] goto tipo={_tipo} step={_paso}", flush=True)
+            handlers.append({"handler": "goto", "params": {"type": "finish", "step": _paso}})
     elif modo == "data":
         handlers = []  # el texto viaja solo en data.message; lo envia un paso del bot
     else:  # "externo": send_external_message (el correcto para mensajes reales)
