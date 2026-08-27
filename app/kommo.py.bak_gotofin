@@ -79,16 +79,6 @@ async def responder(return_url: str, mensaje: str):
     if modo == "show":
         trozos = _trocear(mensaje, 80, 10)
         handlers = [{"handler": "show", "params": {"type": "text", "value": t}} for t in trozos]
-        # goto:finish -> cierra el paso del widget para que el bot NO quede colgado y
-        # se pueda volver a disparar con el proximo mensaje del cliente. Va detras de
-        # una variable (KOMMO_GOTO_FINISH=1 para activarlo); si hiciera un loop, se
-        # apaga poniendo la variable en 0. 'step' es obligatorio aunque type=finish.
-        if (os.getenv("KOMMO_GOTO_FINISH", "") or "").strip().lower() in ("1", "si", "true", "on"):
-            try:
-                _paso = int((os.getenv("KOMMO_GOTO_STEP", "1") or "1").strip())
-            except Exception:
-                _paso = 1
-            handlers.append({"handler": "goto", "params": {"type": "finish", "step": _paso}})
     elif modo == "data":
         handlers = []  # el texto viaja solo en data.message; lo envia un paso del bot
     else:  # "externo": send_external_message (el correcto para mensajes reales)
