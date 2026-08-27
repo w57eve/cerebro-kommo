@@ -137,23 +137,15 @@ async def webhook(request: Request, bg: BackgroundTasks):
     data = body.get("data") or {}
     return_url = body.get("return_url", "")
 
+    if kommo.verificar_token(token) is None:
+        return {"status": "ignored", "reason": "token invalido"}
+
     mensaje = ""
     if isinstance(data, dict):
         mensaje = data.get("message") or data.get("text") or ""
 
-    print(f"[WEBHOOK] recibido | return_url={'si' if return_url else 'NO'} | "
-          f"mensaje={mensaje!r} | keys={list(body.keys())}", flush=True)
-
-    # NO bloqueamos por token: si no valida (secret/formato) avisamos y seguimos,
-    # para no quedar mudos. Se puede endurecer una vez que ande.
-    if kommo.verificar_token(token) is None:
-        print("[WEBHOOK] aviso: el token NO valido (secret o formato). Proceso igual.", flush=True)
-
     if return_url and mensaje:
         bg.add_task(agente.procesar_y_responder, mensaje, return_url, data)
-        print("[WEBHOOK] encolado para responder al return_url.", flush=True)
-    else:
-        print("[WEBHOOK] NO respondo: falta return_url o mensaje.", flush=True)
 
     return {"status": "ok"}
 
