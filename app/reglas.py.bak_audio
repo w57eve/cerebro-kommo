@@ -125,18 +125,3 @@ def responder(mensaje: str):
             return {"tipo": "texto", "texto": resp}
 
     return None
-
-
-# ── Notas de voz / audio ──
-# WhatsApp+Kommo nos mandan solo un indicador (ej. 🔊) cuando llega una nota de
-# voz; no recibimos el archivo, asi que todavia no podemos "escucharlas".
-_AUDIO_MARCAS = ("\U0001F50A", "\U0001F3A4", "\U0001F399", "\U0001F3A7", "\U0001F3B5", "\U0001F3B6")
-
-
-def es_audio(mensaje: str) -> bool:
-    """True si el mensaje es SOLO un indicador de nota de voz (sin texto real)."""
-    s = (mensaje or "").strip()
-    if not s:
-        return False
-    solo = "".join(ch for ch in s if ch.isalnum())
-    return (not solo) and any(m in s for m in _AUDIO_MARCAS)

@@ -19,12 +19,6 @@ import asyncio
 
 from . import conocimiento, kommo, llm, productos, reglas, vendedores
 
-AUDIO_MSG = (
-    "¡Hola! 🎧 Me llegó tu audio, pero por acá todavía no puedo "
-    "escucharlos. ¿Me lo escribís en un mensajito así te ayudo enseguida? "
-    "Si preferís, te paso con un asesor 🙌"
-)
-
 FALLBACK = (
     "Perdón, no te seguí bien 🙏 ¿Me decís qué producto buscás (nombre o SKU)? "
     "Si preferís, te paso con un asesor."
@@ -108,10 +102,6 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "") -> dict:
     mismo mensaje, saludamos (por su nombre si lo tenemos) y en el MISMO mensaje
     contestamos/mostramos los productos. No devolvemos solo un saludo.
     """
-    # Nota de voz: no podemos escucharla todavia -> pedimos texto / derivamos.
-    if reglas.es_audio(mensaje):
-        return {"texto": AUDIO_MSG, "derivar": False}
-
     saludo = reglas.es_saludo(mensaje)
 
     # Solo un saludo (sin pedido) -> bienvenida y a esperar el pedido.
