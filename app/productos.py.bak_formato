@@ -47,20 +47,8 @@ async def _descargar():
         if not isinstance(v, list) or not v:
             continue
         nombre = html.unescape(v[0] or "").strip()   # &#039; -> ' , &quot; -> "
-        # Formato del catalogo:
-        #   NUEVO (4): [nombre, precio_retail, precio_oferta, foto]
-        #   viejo (3): [nombre, precio, foto]
-        if len(v) >= 4:
-            retail, oferta, foto = v[1], v[2], v[3]
-            precio = retail
-            try:
-                if oferta and 0 < float(oferta) < float(retail):
-                    precio = oferta   # si hay oferta valida, se usa la oferta
-            except Exception:
-                pass
-        else:
-            precio = v[1] if len(v) > 1 else None
-            foto = v[2] if len(v) > 2 else ""
+        precio = v[1] if len(v) > 1 else None
+        foto = v[2] if len(v) > 2 else ""
         it = {
             "sku": str(sku),
             "nombre": nombre,

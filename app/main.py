@@ -177,6 +177,32 @@ async def webhook(request: Request, bg: BackgroundTasks):
     return {"status": "ok"}
 
 
+@app.get("/diag")
+async def diag():
+    """Diagnostico: confirma si el catalogo carga y con que formato."""
+    from . import productos
+    info = {"catalogo_url": cfg.CATALOGO_JSON_URL}
+    try:
+        cand = await productos.buscar("championes", limite=3)
+        info["productos_cargados"] = productos.cantidad()
+        info["muestra_busqueda_champion"] = [
+            {"sku": c["sku"], "nombre": c["nombre"], "precio": c["precio"],
+             "foto": (c["imagenes"][0] if c.get("imagenes") else None)}
+            for c in cand
+        ]
+        items = productos._cache.get("items") or []
+        if items:
+            it0 = items[0]
+            info["ejemplo_item"] = {"sku": it0["sku"], "nombre": it0["nombre"],
+                                    "precio": it0["precio"],
+                                    "foto": (it0["imagenes"][0] if it0.get("imagenes") else None)}
+    except Exception as e:
+        import traceback
+        info["error"] = f"{type(e).__name__}: {e}"
+        info["trace"] = traceback.format_exc()[-500:]
+    return info
+
+
 @app.post("/probar")
 async def probar(request: Request):
     body = await request.json()
