@@ -79,9 +79,6 @@ async def responder(return_url: str, mensaje: str):
     if modo == "show":
         trozos = _trocear(mensaje, 80, 10)
         handlers = [{"handler": "show", "params": {"type": "text", "value": t}} for t in trozos]
-        # goto:finish -> le dice a Kommo "mostra esto y termina el paso" (sin esto,
-        # el 202 se acepta pero el mensaje no se entrega al cliente).
-        handlers.append({"handler": "goto", "params": {"type": "finish"}})
     elif modo == "data":
         handlers = []  # el texto viaja solo en data.message; lo envia un paso del bot
     else:  # "externo": send_external_message (el correcto para mensajes reales)
