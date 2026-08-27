@@ -4,3 +4,7 @@ __pycache__/
 .venv/
 venv/
 .DS_Store
+*.bak_troceo
+*.bak_diag
+*.bak_diag2
+*.bak_auth

@@ -40,20 +40,40 @@ def verificar_token(token: str):
         return None
 
 
+
+def _trocear(texto, limite=80, max_trozos=10):
+    """Kommo limita cada handler 'show' a 80 caracteres. Partimos el texto en
+    trozos de <= limite respetando palabras (y cortando duro palabras larguisimas)."""
+    trozos, actual = [], ""
+    for p in (texto or "").split():
+        while len(p) > limite:
+            if actual:
+                trozos.append(actual); actual = ""
+            trozos.append(p[:limite]); p = p[limite:]
+        if len(actual) + (1 if actual else 0) + len(p) <= limite:
+            actual = (actual + " " + p) if actual else p
+        else:
+            trozos.append(actual); actual = p
+        if len(trozos) >= max_trozos:
+            break
+    if actual and len(trozos) < max_trozos:
+        trozos.append(actual)
+    return trozos[:max_trozos] or [(texto or "")[:limite]]
+
 async def responder(return_url: str, mensaje: str):
     """Envía la respuesta del agente de vuelta a Kommo, que se la muestra al
     cliente. Se manda como un ÚNICO mensaje (un solo cobro de WhatsApp)."""
     if not return_url or not mensaje:
         return False
+    trozos = _trocear(mensaje, 80, 10)
     payload = {
         "data": {"message": mensaje},
         "execute_handlers": [
-            {
-                "handler": "show",
-                "params": {"type": "text", "value": mensaje},
-            }
+            {"handler": "show", "params": {"type": "text", "value": t}}
+            for t in trozos
         ],
     }
+    print(f"[RESPONDER] enviando {len(trozos)} trozo(s) (limite 80c)", flush=True)
     headers = {"Accept": "application/json"}
     if cfg.KOMMO_TOKEN:
         headers["Authorization"] = f"Bearer {cfg.KOMMO_TOKEN}"
