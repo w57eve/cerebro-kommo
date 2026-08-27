@@ -33,7 +33,7 @@ def verificar_token(token: str):
         return jwt.decode(
             token,
             cfg.KOMMO_SECRET_KEY,
-            algorithms=["HS256", "HS512"],
+            algorithms=["HS256"],
             options={"verify_aud": False, "verify_exp": False},
         )
     except Exception:
@@ -54,14 +54,10 @@ async def responder(return_url: str, mensaje: str):
             }
         ],
     }
-    headers = {"Accept": "application/json"}
-    if cfg.KOMMO_TOKEN:
-        headers["Authorization"] = f"Bearer {cfg.KOMMO_TOKEN}"
     try:
-        async with httpx.AsyncClient(timeout=15) as cli:
-            r = await cli.post(return_url, json=payload, headers=headers)
-            print(f"[RESPONDER] POST return_url -> HTTP {r.status_code} | "
-                  f"auth={'si' if cfg.KOMMO_TOKEN else 'NO'} | resp={r.text[:300]!r}", flush=True)
+        async with httpx.AsyncClient(timeout=10) as cli:
+            r = await cli.post(return_url, json=payload)
+            print(f"[RESPONDER] POST al return_url -> HTTP {r.status_code}", flush=True)
             return r.status_code < 400
     except Exception as e:
         print(f"[RESPONDER] ERROR al postear al return_url: {e}", flush=True)
