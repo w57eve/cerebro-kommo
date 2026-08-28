@@ -24,7 +24,18 @@ Código nuevo: app/kommo_api.py + endpoint /webhook-mensajes en app/main.py.
 Diagnóstico: https://cerebro-kommo.onrender.com/diag-kommo
 El endpoint viejo /webhook (widget) queda como respaldo pero ya no se usa.
 
-## 0.1 PASOS ÚNICOS EN EL PANEL DE KOMMO (pendiente de ejecutar)
+## 0.1 PASOS EN EL PANEL DE KOMMO — EJECUTADOS el 2026-08-28 (via Claude+Chrome)
+HECHO: bot "Enviar respuesta cerebro" creado, ID 110388 (un paso "Enviar
+mensaje" = campo del lead [Respuesta bot], SIN disparador; el placeholder quedó
+como chip reconocido). Webhook agregado: /webhook-mensajes con el evento
+"Mensaje entrante recibido" (Kommo valida la URL con un GET; se agregó GET al
+endpoint). Salesbot #4 (el del widget viejo, el de los mensajes entrecortados):
+disparador ELIMINADO. El ID 110388 quedó como default en el código
+(kommo_api.bot_id), así no hace falta tocar Render.
+OJO: Salesbot #4 tenía ~48 sesiones activas colgadas en charlas viejas; en esos
+leads el bots/run puede fallar hasta que expiren. Probar con charlas NUEVAS.
+
+## 0.1b Detalle original de los pasos (referencia)
 Con sesión de admin en Kommo:
 1. TOKEN: Ajustes -> Integraciones -> nuestra integración privada -> token de
    larga duración. En Render: KOMMO_API_TOKEN (si ya es el mismo KOMMO_TOKEN,

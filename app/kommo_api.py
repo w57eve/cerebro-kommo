@@ -49,10 +49,12 @@ def listo() -> bool:
 
 
 def bot_id() -> int:
+    # 110388 = bot "Enviar respuesta cerebro" (creado 2026-08-28); se puede
+    # pisar con la variable KOMMO_BOT_ID en Render sin tocar el codigo.
     try:
-        return int((os.getenv("KOMMO_BOT_ID", "") or "0").strip())
+        return int((os.getenv("KOMMO_BOT_ID", "") or "110388").strip())
     except Exception:
-        return 0
+        return 110388
 
 
 async def _campo_id(cli: httpx.AsyncClient) -> int:
