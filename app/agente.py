@@ -16,8 +16,45 @@ UN solo mensaje (cada mensaje de la línea oficial se cobra).
 """
 
 import asyncio
+import re as _re
 
 from . import busqueda, conocimiento, kommo, llm, productos, reglas, vendedores
+
+# ── Higiene de salida ──────────────────────────────────────────────────────
+_URL_RE = _re.compile(r"https?://[^\s)\]]+")
+
+# Prefijos de links LEGÍTIMOS (todo lo demás se considera inventado y se borra)
+_LINKS_BASE = (
+    "https://www.shoppingasia.com.py/storage/",   # fotos reales del catálogo
+    "https://www.shoppingasia.com.py/buscador",   # resultados de búsqueda
+    "https://catalogo.shoppingasia.com.py",       # catálogo de pautas
+    "https://wa.me/",                             # derivación a vendedor
+)
+
+
+def _limpiar_salida(texto: str, permitidos_extra=()) -> str:
+    """Borra meta-notas entre corchetes y CUALQUIER link que no sea legítimo
+    (el bot viejo inventaba URLs de producto rotos: eso no puede volver a salir)."""
+    # 1) meta-notas: [cualquier cosa] (la etiqueta [DERIVAR] ya fue procesada)
+    texto = _re.sub(r"\[[^\]\n]*\]", "", texto)
+    # 2) links: solo los permitidos; la línea con un link inventado se borra entera
+    permitidos = _LINKS_BASE + tuple(permitidos_extra)
+
+    def _ok(u: str) -> bool:
+        u = u.rstrip(".,;:!?")
+        if u.rstrip("/") == "https://www.shoppingasia.com.py":
+            return True   # la portada sí existe
+        return any(u.startswith(p) for p in permitidos)
+
+    lineas = []
+    for ln in texto.splitlines():
+        urls = _URL_RE.findall(ln)
+        if urls and not all(_ok(u) for u in urls):
+            continue
+        lineas.append(ln)
+    limpio = "\n".join(lineas)
+    limpio = _re.sub(r"\n{3,}", "\n\n", limpio).strip()
+    return limpio
 
 AUDIO_MSG = (
     "¡Hola! 🎧 Me llegó tu audio, pero por acá todavía no puedo "
@@ -73,6 +110,20 @@ Cómo trabajás (MUY IMPORTANTE):
 Reglas duras (no las rompas nunca):
 - No inventás precios, stock ni políticas. Si no está en el catálogo ni en los
   datos que te paso, NO lo afirmes.
+- **LINKS: SOLO los que te paso en el contexto** (fotos del catálogo, link "ver
+  más", catálogo de pautas). NUNCA armes ni inventes URLs de producto: el
+  sistema borra cualquier link que no venga del contexto y tu mensaje queda
+  incompleto. Si no tenés link real, mandá nombre + precio + SKU y listo.
+- Nada de meta-notas ni texto entre corchetes en la respuesta (el cliente lo ve
+  tal cual). La única etiqueta permitida es [DERIVAR] al final.
+- Léxico paraguayo: nada de mexicanismos tipo "¿te late?"; usá "¿te gustó?",
+  "¿cuál te interesa?", "al toque", voseo siempre.
+- Si el producto pedido NO está: nunca cierres con "no tenemos" seco; ofrecé
+  2-3 alternativas del mismo rubro de los candidatos del contexto, o derivá.
+- Nunca niegues lo que vos mismo dijiste antes (tenés la conversación previa
+  en el contexto: usala).
+- Si el cliente dice que un link no le abre: no insistas con el link; mandale
+  nombre + precio + foto (link de foto del contexto) directo en el chat.
 - Orden para encontrar un artículo: catálogo/base completa → si no aparece,
   DERIVÁS a un vendedor (a veces son artículos nuevos todavía no cargados).
 - Respondé en UN solo mensaje, completo y no muy largo. Nada de varios mensajes
@@ -193,14 +244,17 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     if llm.disponible():
         texto = await asyncio.to_thread(llm.responder, SISTEMA, contexto, mensaje)
         if texto:
-            # El LLM pide derivar con la etiqueta [DERIVAR] al final.
-            if "[DERIVAR]" in texto:
-                texto = texto.replace("[DERIVAR]", "").strip()
+            # Links legítimos de ESTA respuesta: las fotos de los candidatos.
+            fotos = tuple(it["imagenes"][0] for it in sugeridos if it.get("imagenes"))
+            derivar = "[DERIVAR]" in texto
+            texto = _limpiar_salida(texto.replace("[DERIVAR]", ""), fotos)
+            if derivar:
                 d = vendedores.mensaje_derivacion(
                     sku=(sku or ""), consulta=mensaje[:180])
                 texto = (texto + "\n\n" + d["texto"]).strip()
                 return {"texto": texto, "derivar": True, "candidatos": len(sugeridos)}
-            return {"texto": texto, "derivar": False, "candidatos": len(sugeridos)}
+            if texto:
+                return {"texto": texto, "derivar": False, "candidatos": len(sugeridos)}
 
     # Sin IA: si hay productos, los ofrecemos (0 tokens), con saludo si aplica.
     if sugeridos:

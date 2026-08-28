@@ -94,6 +94,22 @@ REGLAS = [
         "¿Querés que te arme un presupuesto?",
     ),
     (
+        ["como comprar", "como compro", "como hago el pedido", "como puedo comprar",
+         "como podemos comprar", "como hago para comprar", "como pedir"],
+        "¡Es fácil! 1) Elegí el producto (decime el nombre, mandame una foto o "
+        "el SKU y te paso precio y stock). 2) Confirmamos disponibilidad. "
+        "3) Elegís retiro en el local (Av. Eusebio Ayala 1451, Asunción) o envío "
+        "a todo el país (compra mínima 100.000 gs). 4) Pagás por transferencia, "
+        "QR, tarjeta o efectivo. ¿Qué producto te interesa?",
+    ),
+    (
+        ["por que mas caro", "porque mas caro", "por que algunos son mas caros",
+         "diferencia de precio", "por que la diferencia"],
+        "¡Buena pregunta! Las diferencias de precio se dan por la marca, el "
+        "material, el origen o el modelo, aunque parezcan similares. Decime "
+        "cuáles estás comparando y te explico la diferencia puntual.",
+    ),
+    (
         ["cambio", "cambiar", "devolucion", "devolver", "garantia"],
         "Tenés 48 hs para cambios o devoluciones, presentando el ticket y el "
         "producto en su caja y con las etiquetas intactas. Si tenés algún "
