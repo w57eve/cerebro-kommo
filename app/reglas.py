@@ -94,6 +94,15 @@ REGLAS = [
         "¿Querés que te arme un presupuesto?",
     ),
     (
+        ["siguen las ofertas", "sigue la oferta", "siguen la oferta",
+         "sigue esa oferta", "aun tienen la oferta", "todavia tienen la oferta",
+         "todavia esta la oferta", "sigue vigente", "esta vigente la oferta",
+         "siguen las promos", "sigue la promo", "siguen los precios"],
+        "¡Sí, así es! Siguen las ofertas 🙌 ¿Qué publicación viste? Decime el "
+        "producto o mandame una captura y te paso precio y disponibilidad al "
+        "toque.",
+    ),
+    (
         ["como comprar", "como compro", "como hago el pedido", "como puedo comprar",
          "como podemos comprar", "como hago para comprar", "como pedir"],
         "¡Es fácil! 1) Elegí el producto (decime el nombre, mandame una foto o "

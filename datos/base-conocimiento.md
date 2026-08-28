@@ -66,8 +66,10 @@
 El catálogo de flyers **no tiene todos los productos**. El agente debe saberlo y
 buscar en este orden, sin frustrar al cliente:
 
-1. **Catálogo de flyers** (https://catalogo.shoppingasia.com.py) → lo primero, para
-   lo que sí está armado con foto/flyer.
+1. **Catálogo de flyers** (https://catalogo.shoppingasia.com.py) → SOLO tiene
+   CALZADOS y algunas publicidades puntuales. Ropa, maquillaje y demás rubros NO
+   están ahí (todavía no se publicaron): para esos rubros usar el catálogo
+   completo y la web, nunca mandar el catálogo de flyers.
 2. **Página web** (https://www.shoppingasia.com.py) → si el artículo **no está en el
    catálogo** (ej.: **prendas no están en el catálogo**), el agente lo busca en la web
    por nombre/SKU/foto y responde con precio + foto desde ahí.

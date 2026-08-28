@@ -276,12 +276,12 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             f"El chat entró por {origen} (desde una publicación/pauta de redes, "
             "no sabemos cuál exactamente). Si el cliente pide 'más información', "
             "'la oferta' o 'lo del anuncio', se refiere a LO QUE VIO en esa "
-            "publicación: casi siempre son los productos del CATÁLOGO CHICO "
-            "pautado. Respondé así: preguntá cuál producto vio (o pedile que "
-            "mande la foto/captura) Y en el MISMO mensaje pasale "
-            "https://catalogo.shoppingasia.com.py explicando que ahí están las "
-            "ofertas publicadas (botón 'Hacer pedido' lo trae de vuelta acá). "
-            "NO mandes ofertas genéricas de la página web.\n")
+            "publicación. NO adivines cuál es: preguntá qué producto vio o "
+            "pedile que mande una captura de la publicación (la captura la "
+            "podés ver). NO mandes ofertas genéricas de la página web, y solo "
+            "mencioná el catálogo rápido (catalogo.shoppingasia.com.py) si lo "
+            "que busca es CALZADO — ropa, maquillaje y otros rubros NO están "
+            "ahí.\n")
 
     # "El de 116 mil", "el de 45.000 gs": es una REFERENCIA A PRECIO de algo
     # que ya vio (en la charla, en el catálogo chico o en una foto), NO un
