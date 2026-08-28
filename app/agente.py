@@ -395,7 +395,30 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     pauta_term = ("calzado" if (_toks & _CALZADO_TOKENS
                                 or "todo terreno" in _msg_n
                                 or "todoterreno" in _msg_n) else "")
-    if pauta_term:
+
+    # ── ELECCIÓN CONCRETADA (detección DETERMINÍSTICA en el servidor) ──
+    # El cliente ya eligió si: mandó un SKU (venía del botón "Hacer pedido" o
+    # del catálogo chico), o dio su calce/talle con número, o respondió con el
+    # número solo ("42") cuando la charla ya venía. En ese caso se DERIVA SÍ O
+    # SÍ (la IA solo redacta la confirmación; la derivación la fuerza el server).
+    eligio = False
+    if sku and ("hacer un pedido" in _msg_n
+                or await catalogo_chico.categoria_de(sku)):
+        eligio = True
+    elif (_re.search(r"\b(calce|talle|numero|nro|n)\s*:?\s*\d{2}\b", _msg_n)
+          and (historial or sugeridos or pauta_term)):
+        eligio = True
+    elif _re.fullmatch(r"\s*(el\s+)?\d{2}\s*", _msg_n) and historial:
+        eligio = True
+    if eligio:
+        contexto += (
+            "ELECCIÓN CONCRETADA: el cliente YA eligió (producto y/o calce). "
+            "PROHIBIDO ofrecer el catálogo, más opciones o links: confirmá su "
+            "elección en UNA o DOS líneas (producto y precio si los tenés, y "
+            "el calce que dijo) y nada más. El sistema agrega el contacto del "
+            "vendedor automáticamente al final de tu mensaje.\n")
+
+    if pauta_term and not eligio:
         contexto += (
             "CONSULTA DE CALZADO (regla fija, en este ORDEN): "
             "1) PRIMERO el catálogo rápido: pasá "
@@ -419,6 +442,8 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     else:
         term_web = _idx.termino_web(mensaje) if _idx else busqueda.termino_web(mensaje)
     link_web = ""
+    if eligio:
+        term_web = ""   # ya eligió: nada de links de "ver más"
     if term_web and not sku and await _web_tiene_resultados(term_web):
         from urllib.parse import quote as _q
         link_web = f"https://www.shoppingasia.com.py/buscador?q={_q(term_web)}"
@@ -454,7 +479,7 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                                if it.get("imagenes"))
             if link_web:
                 permitidos += (link_web,)
-            derivar = "[DERIVAR]" in texto
+            derivar = "[DERIVAR]" in texto or eligio
             texto = _limpiar_salida(texto.replace("[DERIVAR]", ""), permitidos)
             if derivar:
                 d = vendedores.mensaje_derivacion(
