@@ -59,6 +59,36 @@ def _limpiar_salida(texto: str, permitidos_extra=()) -> str:
     limpio = _re.sub(r"\n{3,}", "\n\n", limpio).strip()
     return limpio
 
+# ── Verificación del buscador de la web ────────────────────────────────────
+# Antes de ofrecer el link /buscador?q=..., comprobamos que la web tenga
+# resultados DE VERDAD (una página vacía no contiene links /producto/).
+_web_cache = {}   # termino -> (ts, tiene_resultados)
+
+
+async def _web_tiene_resultados(term: str) -> bool:
+    import time as _t
+
+    import httpx as _httpx
+    from urllib.parse import quote as _q
+    v = _web_cache.get(term)
+    if v and _t.time() - v[0] < 6 * 3600:
+        return v[1]
+    ok = False
+    try:
+        async with _httpx.AsyncClient(timeout=7) as cli:
+            r = await cli.get(
+                f"https://www.shoppingasia.com.py/buscador?q={_q(term)}",
+                headers={"User-Agent": "cerebro"})
+        ok = r.status_code == 200 and ("/producto/" in r.text
+                                       or "storage/sku" in r.text)
+    except Exception:
+        ok = False   # ante la duda, mejor sin link que con un link vacío
+    if len(_web_cache) > 500:
+        _web_cache.clear()
+    _web_cache[term] = (_t.time(), ok)
+    return ok
+
+
 AUDIO_MSG = (
     "¡Hola! 🎧 Me llegó tu audio, pero por acá todavía no puedo "
     "escucharlos. ¿Me lo escribís en un mensajito así te ayudo enseguida? "
@@ -117,6 +147,10 @@ Reglas duras (no las rompas nunca):
   ej. "240.000 gs"). No los recalcules, no los redondees, y JAMÁS le pongas a
   un producto el precio de otro: cada precio va pegado a SU producto de la
   lista del contexto. Si dudás, no des el precio y ofrecé confirmarlo.
+- **FRUSTRACIÓN = DERIVAR, nunca discutir.** Si el cliente muestra molestia
+  ("no es eso", "no me entendés", "ya te dije", repite lo mismo) o después de
+  DOS intentos seguís sin acertar el producto, no sigas insistiendo: disculpa
+  breve y [DERIVAR]. Un cliente peleando con un bot es una venta perdida.
 - **DERIVACIÓN: una sola vez por charla.** Si en la conversación previa ya
   derivaste (aparece un link wa.me), NO uses [DERIVAR] de nuevo: recordale que
   ese mismo vendedor lo va a atender y repetile el mismo link si hace falta.
@@ -277,11 +311,30 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     else:
         term_web = _idx.termino_web(mensaje) if _idx else busqueda.termino_web(mensaje)
     link_web = ""
-    if term_web and not sku:
+    if term_web and not sku and await _web_tiene_resultados(term_web):
         from urllib.parse import quote as _q
         link_web = f"https://www.shoppingasia.com.py/buscador?q={_q(term_web)}"
-        contexto += ("Link 'ver más' (único link de búsqueda permitido; va TAL "
-                     f"CUAL, no lo modifiques ni armes otro): {link_web}\n")
+        contexto += ("Link 'ver más' (VERIFICADO: la web tiene resultados; va "
+                     f"TAL CUAL, no lo modifiques ni armes otro): {link_web}\n")
+    elif term_web and not sku:
+        contexto += ("OJO: la web NO tiene resultados para esta búsqueda. NO "
+                     "mandes ningún link de buscador; resolvé con los "
+                     "candidatos del catálogo o derivá.\n")
+
+    # Sin resultados en el catálogo -> no pelear con el cliente: aclarar UNA
+    # vez como máximo, y si la charla ya venía sin acertar, derivar directo.
+    if not sugeridos and not sku and not pauta_term:
+        if historial:
+            contexto += (
+                "NO encontré nada en el catálogo para este pedido y la charla "
+                "ya venía: no insistas ni repreguntes de nuevo; pedí una "
+                "disculpa breve y derivá con [DERIVAR].\n")
+        else:
+            contexto += (
+                "NO encontré nada en el catálogo para este pedido: no "
+                "inventes. Hacé UNA sola repregunta (nombre exacto, foto o "
+                "SKU) y ofrecé pasar con un asesor; si insiste sin aclarar, "
+                "derivá con [DERIVAR].\n")
 
     # 3) IA para redactar (tono humano). Si no hay IA o falla, respuesta templada.
     if llm.disponible():

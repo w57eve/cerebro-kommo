@@ -123,7 +123,10 @@ DERIVAR = ["hablar con", "un vendedor", "una persona", "un asesor", "asesor",
            "atencion humana", "hablar con alguien", "vendedor", "vendedora",
            "queja", "reclamo", "reclamar", "estafa", "no llego", "no me llego",
            "nunca llego", "defectuoso", "fallado", "mal estado", "vino roto",
-           "llego roto", "denuncia", "denunciar", "me cobraron"]
+           "llego roto", "denuncia", "denunciar", "me cobraron",
+           # frustración con el bot -> a una persona, sin discutir
+           "no me sirve", "no es eso", "no me entendes", "no me estas entendiendo",
+           "no entendes nada", "no es lo que busco", "no era eso", "ya te dije"]
 
 
 def responder(mensaje: str):
