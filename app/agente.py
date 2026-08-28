@@ -18,7 +18,8 @@ UN solo mensaje (cada mensaje de la línea oficial se cobra).
 import asyncio
 import re as _re
 
-from . import busqueda, conocimiento, kommo, llm, productos, reglas, vendedores
+from . import (busqueda, catalogo_chico, conocimiento, kommo, llm,
+               productos, reglas, vendedores)
 
 # ── Higiene de salida ──────────────────────────────────────────────────────
 _URL_RE = _re.compile(r"https?://[^\s)\]]+")
@@ -163,6 +164,11 @@ Reglas duras (no las rompas nunca):
   ("no es eso", "no me entendés", "ya te dije", repite lo mismo) o después de
   DOS intentos seguís sin acertar el producto, no sigas insistiendo: disculpa
   breve y [DERIVAR]. Un cliente peleando con un bot es una venta perdida.
+- **CATÁLOGO RÁPIDO por SKU (dato exacto, no adivines):** si un candidato del
+  contexto dice "ESTÁ EN EL CATÁLOGO RÁPIDO", ese producto está publicado en
+  https://catalogo.shoppingasia.com.py con fotos y talles: ofrecé ese link
+  (botón 'Hacer pedido' lo trae de vuelta acá). Si NO lo dice, ese producto NO
+  está en el catálogo rápido: no lo prometas ahí.
 - **DERIVACIÓN: una sola vez por charla.** Si en la conversación previa ya
   derivaste (aparece un link wa.me), NO uses [DERIVAR] de nuevo: recordale que
   ese mismo vendedor lo va a atender y repetile el mismo link si hace falta.
@@ -317,13 +323,20 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                      "Si en la conversación previa ya pasó esto, derivá con "
                      "[DERIVAR].\n")
 
+    async def _linea(it):
+        # marca por SKU si el producto está publicado en el CATÁLOGO RÁPIDO
+        _cat = await catalogo_chico.categoria_de(it.get("sku"))
+        _extra = (f" | ESTÁ EN EL CATÁLOGO RÁPIDO (sección {_cat})"
+                  if _cat else "")
+        return productos.a_texto(it) + _extra
+
     sugeridos = []
     sku = productos.extraer_sku(mensaje)
     if sku:
         it = await productos.por_sku(sku)
         if it:
             sugeridos = [it]
-            contexto += "Producto confirmado (podés dar precio/foto):\n" + productos.a_texto(it) + "\n"
+            contexto += "Producto confirmado (podés dar precio/foto):\n" + await _linea(it) + "\n"
         else:
             contexto += (f"El SKU {sku} no está en el catálogo. No afirmes que "
                          "existe; ofrecé buscarlo o derivar.\n")
@@ -331,11 +344,12 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
         cand = await productos.buscar(mensaje, limite=5)
         sugeridos = cand
         if len(cand) == 1:
-            contexto += "Posible producto (confirmá con el cliente):\n" + productos.a_texto(cand[0]) + "\n"
+            contexto += "Posible producto (confirmá con el cliente):\n" + await _linea(cand[0]) + "\n"
         elif len(cand) > 1:
             contexto += ("Varios candidatos (mostrá 3–4 con su foto y pedí que "
                          "elija, no adivines):\n")
-            contexto += "\n".join(productos.a_texto(c) for c in cand) + "\n"
+            for _c in cand:
+                contexto += await _linea(_c) + "\n"
 
     # REGLA DE ORO DE CALZADOS: toda consulta de la familia calzado (champion,
     # botines, chutera, futsal, todo terreno, IRUN...) — venga de pauta, de la
