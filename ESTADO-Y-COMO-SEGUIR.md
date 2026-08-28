@@ -105,6 +105,55 @@ Nota de diseño: un bot en bucle queda "activo". Cuando se quiera DERIVAR a un v
 habrá que cortar el bucle (mandar goto finish en vez de question cuando res["derivar"]
 es True). Afinar eso una vez que el bucle ande.
 
+## 0.3 RONDA 2026-08-28 (tarde) — afinado del agente + minado de chats
+HECHO EN CÓDIGO (todo desplegado):
+- MEMORIA de conversación: recuerda los últimos 8 intercambios por lead (antes
+  procesaba cada mensaje suelto). No re-saluda, retoma el hilo.
+- APRENDIZAJE: cada intercambio se registra con señales de calidad. Endpoint
+  https://cerebro-kommo.onrender.com/aprendizaje -> tasas de fallback/derivación
+  y TOP de consultas sin respuesta útil (materia prima para reglas nuevas).
+- FILTRO DE LINKS: solo salen URLs legítimas (fotos storage/, /buscador,
+  catalogo.shoppingasia.com.py, wa.me). Links inventados = línea borrada.
+  También se borran meta-notas entre [corchetes].
+- Ventas: 3-4 opciones por consulta; link "ver más" = /buscador?q=<término>
+  con jerga mapeada (championes->calzado); derivación por IA con etiqueta
+  [DERIVAR] (concretar compra, quejas, no puede resolver); quejas por regla
+  directa; flujo calzados de pautas (horma chica + catálogo + botón "Hacer
+  pedido" -> derivar) en base-conocimiento 5.1b.
+- Reglas nuevas de los chats reales: "cómo comprar" (mini-guía), "por qué más
+  caros", sinónimos pirex/pegatinas/turbante.
+
+MINADO DE CHATS HISTÓRICOS (muestra de 40 leads, 20 con contenido):
+- La API de Kommo NO expone el texto de mensajes viejos (solo IDs); el minado
+  se hizo leyendo el panel con el navegador. El panel muestra ~10 mensajes por
+  lead, así que las frecuencias son piso.
+- Errores del bot viejo detectados: saludos repetidos (~6 leads), dobles
+  respuestas (~5), mensajes con estado Error que nunca llegaron (~5), links de
+  producto INVENTADOS/rotos, meta-notas filtradas al cliente, "¿te late?"
+  (mexicanismo), negó su propio mensaje anterior, "no tenemos" seco sin
+  alternativas, leads sin responder. -> TODOS con corrección aplicada (ver
+  arriba); los de arquitectura (duplicados/Error) los resuelve la v2.
+- Patrones de clientes: deixis con foto ("quiero ese" + imagen), mensaje
+  truncado del click-to-chat ("Necesito más información sobre ..."), listas
+  mayoristas con viñetas, "no me deja abrir el link" -> prefieren foto+precio
+  en el chat, ubicación ("soy de Ciudad del Este"), catálogo Shein.
+- PENDIENTES sacados del minado: repregunta única para mensaje truncado,
+  respuesta ítem por ítem en listas mayoristas + derivar, filtro spam B2B,
+  búsqueda por foto (hoy la imagen llega sin texto y el hilo muere).
+
+REVISIÓN PERIÓDICA (para no perder el hilo):
+- Tarea programada semanal en Cowork: leer este documento + /aprendizaje y
+  proponer reglas nuevas con lo que falló en la semana. El ciclo de mejora es:
+  registro -> detección -> regla nueva -> deploy.
+
+FOTO REAL (pendiente en curso):
+- Los bots de Kommo NO soportan imagen con URL dinámica (verificado en doc).
+- Hoy la foto va como link pelado; falta probar si el mensaje del bot nuevo
+  genera previsualización en WhatsApp.
+- Si no previsualiza: la vía es la API de WhatsApp Cloud (Meta) directa para
+  el mensaje de foto -> requiere acceso al Meta Business / developers de la
+  cuenta que conectó WhatsApp Cloud API.
+
 ## 1. Dónde está TODO
 - Código del cerebro (GitHub): repo w57eve/cerebro-kommo. Copia local en
   C:\Users\Admin\Documents\aplicacion\automatizacion-kommo\cerebro-kommo

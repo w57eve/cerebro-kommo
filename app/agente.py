@@ -233,8 +233,10 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             contexto += "\n".join(productos.a_texto(c) for c in cand) + "\n"
 
     # Link "ver más": resultados de ESTA búsqueda en la web (jerga ya mapeada,
-    # ej. championes -> calzado). Solo para cuando el cliente quiere más variedad.
-    term_web = busqueda.termino_web(mensaje)
+    # ej. championes -> calzado). VERIFICADO contra el catálogo: corrige tipeos
+    # (michila -> mochila) y descarta palabras que no existen en ningún producto.
+    _idx = productos.indice_actual()
+    term_web = _idx.termino_web(mensaje) if _idx else busqueda.termino_web(mensaje)
     if term_web and not sku:
         from urllib.parse import quote as _q
         contexto += ("Link 'ver más' (resultados de esta búsqueda en la web): "

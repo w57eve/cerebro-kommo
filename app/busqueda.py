@@ -249,6 +249,26 @@ class Indice:
                 return {cerca[0]}
         return formas
 
+    def termino_web(self, texto: str) -> str:
+        """Como termino_web() del módulo, pero VERIFICADO contra el catálogo:
+        corrige tipeos con el vocabulario real (michila -> mochila) y descarta
+        palabras que no existen en ningún producto. Así el link del buscador
+        nunca lleva basura."""
+        toks = [w for w in tokenizar(texto) if w not in STOP and not w.isdigit()]
+        out, vistos = [], set()
+        for w in toks:
+            c = _WEB_CANON.get(w, w)
+            if c not in self.df:
+                reales = [f for f in self._expandir(w) if f in self.df]
+                if not reales:
+                    continue          # no existe en el catálogo: fuera del link
+                reales.sort(key=lambda f: -self.df[f])
+                c = _WEB_CANON.get(reales[0], reales[0])
+            if c not in vistos:
+                vistos.add(c)
+                out.append(c)
+        return " ".join(out[:4])
+
     def buscar(self, consulta, limite=4):
         q = [w for w in tokenizar(consulta) if w not in STOP]
         if not q:

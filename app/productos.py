@@ -114,6 +114,11 @@ def cantidad() -> int:
     return len(_cache["items"])
 
 
+def indice_actual():
+    """El índice de búsqueda vivo (o None si todavía no cargó el catálogo)."""
+    return _cache["indice"]
+
+
 def a_texto(it: dict) -> str:
     precio = f"{it['precio']}" if it.get("precio") not in (None, "") else "consultar"
     linea = f"- SKU {it['sku']}: {it['nombre'] or 'producto'} | precio: {precio}"
