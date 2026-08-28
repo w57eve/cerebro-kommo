@@ -17,7 +17,7 @@ UN solo mensaje (cada mensaje de la línea oficial se cobra).
 
 import asyncio
 
-from . import conocimiento, kommo, llm, productos, reglas, vendedores
+from . import busqueda, conocimiento, kommo, llm, productos, reglas, vendedores
 
 AUDIO_MSG = (
     "¡Hola! 🎧 Me llegó tu audio, pero por acá todavía no puedo "
@@ -54,10 +54,17 @@ Cómo trabajás (MUY IMPORTANTE):
   **link de la foto** que te doy en el contexto. Mostrar la foto adentro del chat
   es lo más práctico; la mayoría de los clientes no quieren salir a la web.
 - Si hay un solo candidato claro: presentalo confirmando ("¿es este? [foto]").
-  Si hay varios: mostrá 2–3 opciones con foto y que elija. La búsqueda no es
+  Si hay varios: mostrá 3–4 opciones con foto y que elija. La búsqueda no es
   perfecta: si no estás seguro, ofrecé opciones o pedí el SKU, nunca inventes.
 - **El enlace a la web es la excepción**, no la regla: usalo solo si el cliente
-  está muy indeciso o solo curioseando y querés que vea todo el surtido.
+  ya vio tus opciones y quiere VER MÁS variedad, o está solo curioseando. En ese
+  caso mandá el "link ver más" que te paso en el contexto (lleva directo a los
+  resultados de SU búsqueda en la web, no a la portada).
+- Si el cliente quiere CONCRETAR (pagar, reservar, comprar ya), tiene una QUEJA
+  o reclamo, o no podés resolver con los datos que tenés: escribí tu respuesta
+  breve y terminá el mensaje con la etiqueta [DERIVAR] en una línea aparte. El
+  sistema la reemplaza por el contacto del vendedor de turno. No inventes vos
+  números ni nombres de vendedores.
 - **FOTOS: mandá SIEMPRE el link PELADO** (ej. https://www.shoppingasia.com.py/...jpg),
   tal cual, en su propia línea. NUNCA uses markdown ni corchetes: nada de
   ![texto](url) ni [texto](url). WhatsApp NO renderiza markdown (se ve roto); en
@@ -154,19 +161,34 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "") -> dict:
             contexto += (f"El SKU {sku} no está en el catálogo. No afirmes que "
                          "existe; ofrecé buscarlo o derivar.\n")
     else:
-        cand = await productos.buscar(mensaje, limite=4)
+        cand = await productos.buscar(mensaje, limite=5)
         sugeridos = cand
         if len(cand) == 1:
             contexto += "Posible producto (confirmá con el cliente):\n" + productos.a_texto(cand[0]) + "\n"
         elif len(cand) > 1:
-            contexto += ("Varios candidatos (mostrá 2–3 con su foto y pedí que "
+            contexto += ("Varios candidatos (mostrá 3–4 con su foto y pedí que "
                          "elija, no adivines):\n")
             contexto += "\n".join(productos.a_texto(c) for c in cand) + "\n"
+
+    # Link "ver más": resultados de ESTA búsqueda en la web (jerga ya mapeada,
+    # ej. championes -> calzado). Solo para cuando el cliente quiere más variedad.
+    term_web = busqueda.termino_web(mensaje)
+    if term_web and not sku:
+        from urllib.parse import quote as _q
+        contexto += ("Link 'ver más' (resultados de esta búsqueda en la web): "
+                     f"https://www.shoppingasia.com.py/buscador?q={_q(term_web)}\n")
 
     # 3) IA para redactar (tono humano). Si no hay IA o falla, respuesta templada.
     if llm.disponible():
         texto = await asyncio.to_thread(llm.responder, SISTEMA, contexto, mensaje)
         if texto:
+            # El LLM pide derivar con la etiqueta [DERIVAR] al final.
+            if "[DERIVAR]" in texto:
+                texto = texto.replace("[DERIVAR]", "").strip()
+                d = vendedores.mensaje_derivacion(
+                    sku=(sku or ""), consulta=mensaje[:180])
+                texto = (texto + "\n\n" + d["texto"]).strip()
+                return {"texto": texto, "derivar": True}
             return {"texto": texto, "derivar": False}
 
     # Sin IA: si hay productos, los ofrecemos (0 tokens), con saludo si aplica.
@@ -197,7 +219,7 @@ def _respuesta_productos(items: list) -> str:
         t += "\n¿Es este? Si querés te doy más datos o te paso con un vendedor 🙂"
         return t
     t = "Encontré estas opciones 👇\n"
-    for it in items[:3]:
+    for it in items[:4]:
         t += f"\n• *{it['nombre']}* — {_precio_txt(it)}"
         if it.get("imagenes"):
             t += f"\n  📷 {it['imagenes'][0]}"

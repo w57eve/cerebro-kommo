@@ -139,6 +139,35 @@ def _construir_exp():
 EXP = _construir_exp()
 
 
+# ── Término "canónico" para buscar en la WEB (https://.../buscador?q=...) ──
+# La web indexa por el nombre del catálogo; jerga como "championes" no matchea.
+# Mapeamos cada palabra a la forma canónica de su grupo, con overrides para
+# los casos donde la web usa otra palabra (championes -> calzado).
+_WEB_CANON = {}
+for _grupo in _GRUPOS:
+    _canon_toks = tokenizar(_grupo[0])
+    _canon = _canon_toks[0] if _canon_toks else ""
+    for _w in _grupo:
+        for _pw in tokenizar(_w):
+            if _canon:
+                _WEB_CANON.setdefault(_pw, _canon)
+for _w in ("champion", "champione", "zapatilla", "teni"):
+    _WEB_CANON[_w] = "calzado"
+
+
+def termino_web(texto: str) -> str:
+    """Término limpio para el buscador de la web: sin saludos/ruido, con la
+    jerga mapeada a lo que la web entiende (championes -> calzado)."""
+    toks = [w for w in tokenizar(texto) if w not in STOP and not w.isdigit()]
+    vistos, out = set(), []
+    for w in toks:
+        c = _WEB_CANON.get(w, w)
+        if c not in vistos:
+            vistos.add(c)
+            out.append(c)
+    return " ".join(out[:4])
+
+
 def _lev1(a: str, b: str) -> bool:
     """True si la distancia de edición entre a y b es <= 1 (rápido)."""
     if a == b:

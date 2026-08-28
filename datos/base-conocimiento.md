@@ -79,6 +79,25 @@ buscar en este orden, sin frustrar al cliente:
 > Resumen para el agente: catálogo → web → vendedor. Nunca decir "no tenemos" sin
 > antes pasar por la web; y si no está cargado en ningún lado, derivar (no inventar).
 
+### 5.1b CALZADOS de PAUTAS — talles/calce (regla específica, muy frecuente)
+Los calzados que publicitamos en pautas tienen **horma chica**. Flujo obligatorio
+cuando el cliente pregunta por el **talle/calce** de un calzado (ej. "¿tienen 43?",
+"quiero un calce más grande", "¿me va el 42?"):
+
+1. **Avisar la horma**: decirle que estos modelos tienen horma chica, así que le
+   conviene considerar **un número más** del que usa normalmente.
+2. **Pasar el catálogo de pautas**: https://catalogo.shoppingasia.com.py y
+   explicarle cómo usarlo, en simple: *ahí ves todos los modelos y talles
+   disponibles; elegí el calzado que te gusta y tocá el botón "Hacer pedido" —
+   eso te trae de vuelta acá con la info del calzado elegido*.
+3. **Cuando el cliente vuelve** con la info de un calzado ya elegido desde el
+   catálogo (mensaje que llega con el nombre/datos del modelo): confirmarle
+   brevemente y **derivar a un vendedor** para concretar ([DERIVAR]).
+
+> Este flujo aplica a los calzados de pautas/publicidad. El link del catálogo acá
+> REEMPLAZA al link de la web: para calzados de pautas se manda
+> catalogo.shoppingasia.com.py, no el buscador de la web.
+
 ### 5.2 Búsqueda por foto = sugerencia, NO veredicto (regla de confianza)
 El motor de búsqueda por imagen **no siempre acierta**: a veces los resultados no son
 exactos. Por eso el agente **nunca canta un producto o precio solo porque la foto se

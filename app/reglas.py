@@ -102,8 +102,12 @@ REGLAS = [
 ]
 
 # Pedido explícito de hablar con una persona -> se maneja como derivación.
+# También QUEJAS/RECLAMOS: eso siempre lo atiende una persona, nunca el bot.
 DERIVAR = ["hablar con", "un vendedor", "una persona", "un asesor", "asesor",
-           "atencion humana", "hablar con alguien", "vendedor", "vendedora"]
+           "atencion humana", "hablar con alguien", "vendedor", "vendedora",
+           "queja", "reclamo", "reclamar", "estafa", "no llego", "no me llego",
+           "nunca llego", "defectuoso", "fallado", "mal estado", "vino roto",
+           "llego roto", "denuncia", "denunciar", "me cobraron"]
 
 
 def responder(mensaje: str):
