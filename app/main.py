@@ -18,7 +18,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from . import agente, kommo, kommo_api
+from . import agente, aprendizaje, kommo, kommo_api
 from .config import cfg
 
 app = FastAPI(title="Cerebro de ventas — Shopping Asia")
@@ -196,6 +196,7 @@ _WEBHOOK_CLAVE = (_os.getenv("WEBHOOK_CLAVE", "") or "").strip()
 
 _charlas = {}   # lead_id -> {"textos": [...], "contact_id": str, "tarea": Task}
 _vistos = {}    # message_id -> timestamp (dedupe de reintentos del webhook)
+_memoria = {}   # lead_id -> deque de intercambios {"cliente","agente"} (memoria)
 
 
 @app.on_event("startup")
@@ -250,8 +251,17 @@ async def _responder_charla(lead_id: str):
     print(f"[CHAT] lead={lead_id} nombre={nombre!r} msgs={len(ch['textos'])} "
           f"texto={texto[:120]!r}", flush=True)
     try:
-        res = await agente.procesar(texto, nombre=nombre)
-        await kommo_api.entregar(lead_id, res["texto"])
+        from collections import deque as _deque
+        hist = _memoria.setdefault(lead_id, _deque(maxlen=8))
+        res = await agente.procesar(texto, nombre=nombre, historial=list(hist))
+        ok = await kommo_api.entregar(lead_id, res["texto"])
+        if ok:
+            hist.append({"cliente": texto[:300], "agente": res["texto"][:300]})
+        aprendizaje.registrar(lead_id, texto, res.get("texto", ""),
+                              res.get("derivar", False), res.get("candidatos"))
+        if len(_memoria) > 3000:   # limpieza gruesa de charlas viejas
+            for k in list(_memoria.keys())[:1000]:
+                _memoria.pop(k, None)
     except Exception as e:
         print(f"[CHAT] ERROR procesando lead={lead_id}: {e}", flush=True)
 
@@ -314,6 +324,15 @@ async def webhook_mensajes(request: Request):
         n += 1
     print(f"[MENSAJES] webhook: {n} mensaje(s) encolado(s). keys={list(body.keys())[:8]}", flush=True)
     return {"status": "ok"}
+
+
+@app.get("/aprendizaje")
+async def ver_aprendizaje(request: Request):
+    """Resumen del registro de aprendizaje: tasas de error y consultas sin
+    respuesta útil (materia prima para reglas y sinónimos nuevos)."""
+    if _WEBHOOK_CLAVE and request.query_params.get("clave", "") != _WEBHOOK_CLAVE:
+        return JSONResponse({"error": "clave"}, status_code=403)
+    return aprendizaje.resumen()
 
 
 @app.get("/diag-kommo")

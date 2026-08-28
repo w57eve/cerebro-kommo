@@ -112,8 +112,12 @@ def _prefijo_saludo(saludo: bool, nombre: str = "") -> str:
     return f"¡Hola {n}! " if n else "¡Hola! "
 
 
-async def procesar(mensaje: str, ad_id: str = "", nombre: str = "") -> dict:
-    """Decide la respuesta. Devuelve {"texto": str, "derivar": bool}.
+async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
+                   historial=None) -> dict:
+    """Decide la respuesta. Devuelve {"texto", "derivar", "candidatos"}.
+
+    historial: lista de intercambios previos de ESTA charla, cada uno
+    {"cliente": ..., "agente": ...}. Le da memoria a la conversación.
 
     Clave para no parecer un bot: si el cliente saluda Y pregunta algo en el
     mismo mensaje, saludamos (por su nombre si lo tenemos) y en el MISMO mensaje
@@ -121,27 +125,34 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "") -> dict:
     """
     # Nota de voz: no podemos escucharla todavia -> pedimos texto / derivamos.
     if reglas.es_audio(mensaje):
-        return {"texto": AUDIO_MSG, "derivar": False}
+        return {"texto": AUDIO_MSG, "derivar": False, "candidatos": None}
 
     saludo = reglas.es_saludo(mensaje)
 
     # Solo un saludo (sin pedido) -> bienvenida y a esperar el pedido.
     if reglas.solo_saludo(mensaje):
-        return {"texto": _bienvenida(nombre), "derivar": False}
+        return {"texto": _bienvenida(nombre), "derivar": False, "candidatos": None}
 
     pref = _prefijo_saludo(saludo, nombre)
 
     # 1) Reglas de 0 tokens (FAQ / derivar). Nota: el saludo ya NO corta acá.
     r = reglas.responder(mensaje)
     if r and r["tipo"] == "texto":
-        return {"texto": pref + r["texto"], "derivar": False}
+        return {"texto": pref + r["texto"], "derivar": False, "candidatos": None}
     if r and r["tipo"] == "derivar":
         sku = productos.extraer_sku(mensaje) or ""
         d = vendedores.mensaje_derivacion(sku=sku, consulta=mensaje[:180])
-        return {"texto": pref + d["texto"], "derivar": True}
+        return {"texto": pref + d["texto"], "derivar": True, "candidatos": None}
 
     # 2) Datos de producto (contexto para el LLM y para la respuesta templada)
     contexto = ""
+    if historial:
+        contexto += ("Conversación previa de esta charla (lo más reciente al "
+                     "final; NO vuelvas a saludar, continuá con naturalidad):\n")
+        for h in list(historial)[-6:]:
+            contexto += f"Cliente: {h.get('cliente','')}\n"
+            contexto += f"Vos: {h.get('agente','')}\n"
+        contexto += "---\n"
     n_corto = _nombre_corto(nombre)
     if n_corto:
         contexto += (f"El cliente se llama {n_corto}. Si saludó, devolvé el "
@@ -188,15 +199,15 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "") -> dict:
                 d = vendedores.mensaje_derivacion(
                     sku=(sku or ""), consulta=mensaje[:180])
                 texto = (texto + "\n\n" + d["texto"]).strip()
-                return {"texto": texto, "derivar": True}
-            return {"texto": texto, "derivar": False}
+                return {"texto": texto, "derivar": True, "candidatos": len(sugeridos)}
+            return {"texto": texto, "derivar": False, "candidatos": len(sugeridos)}
 
     # Sin IA: si hay productos, los ofrecemos (0 tokens), con saludo si aplica.
     if sugeridos:
-        return {"texto": pref + _respuesta_productos(sugeridos), "derivar": False}
+        return {"texto": pref + _respuesta_productos(sugeridos), "derivar": False, "candidatos": len(sugeridos)}
     if saludo:
-        return {"texto": _bienvenida(nombre), "derivar": False}
-    return {"texto": FALLBACK, "derivar": False}
+        return {"texto": _bienvenida(nombre), "derivar": False, "candidatos": None}
+    return {"texto": FALLBACK, "derivar": False, "candidatos": 0}
 
 
 def _precio_txt(it: dict) -> str:
