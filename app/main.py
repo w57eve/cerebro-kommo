@@ -256,6 +256,12 @@ async def _responder_charla(lead_id: str):
         print(f"[CHAT] ERROR procesando lead={lead_id}: {e}", flush=True)
 
 
+@app.get("/webhook-mensajes")
+async def webhook_mensajes_get():
+    """Kommo valida la URL del webhook con un GET antes de guardarla."""
+    return {"status": "ok"}
+
+
 @app.post("/webhook-mensajes")
 async def webhook_mensajes(request: Request):
     """Webhook general de Kommo: evento 'Incoming message received'."""
