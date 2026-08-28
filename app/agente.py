@@ -42,6 +42,15 @@ def _limpiar_salida(texto: str, permitidos_extra=()) -> str:
     texto = _re.sub(r"\[[^\]\n]*\]", "", texto)
     # WhatsApp usa *negrita* con UNA estrella; el ** de markdown se ve roto.
     texto = texto.replace("**", "*")
+    # Mexicanismos -> paraguayo (la IA a veces se le escapa aunque el prompt
+    # lo prohíba; acá se corrige SIEMPRE antes de enviar).
+    for _mx, _py in (("te late", "te parece"), ("¿qué onda", "¿qué tal"),
+                     ("que onda", "que tal"), ("ahorita", "ahora"),
+                     ("platicar", "charlar"), ("platicamos", "charlamos"),
+                     ("padrísimo", "buenísimo"), ("padrisimo", "buenisimo"),
+                     ("chido", "bueno"), ("órale", "dale"), ("orale", "dale"),
+                     ("güey", ""), ("checa", "mirá"), ("checar", "mirar")):
+        texto = _re.sub(_re.escape(_mx), _py, texto, flags=_re.IGNORECASE)
     # 2) links: solo los permitidos; la línea con un link inventado se borra entera
     permitidos = _LINKS_BASE + tuple(permitidos_extra)
 
