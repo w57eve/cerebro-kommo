@@ -134,8 +134,20 @@ def foto_url(it: dict) -> str:
     return ""
 
 
+def precio_texto(it: dict) -> str:
+    """Precio YA formateado (ej. '240.000 gs') para que el LLM lo copie tal
+    cual y no lo recalcule (recalculando mezclaba/erraba precios)."""
+    p = it.get("precio")
+    if p in (None, "", 0):
+        return "consultar"
+    try:
+        return f"{int(float(p)):,} gs".replace(",", ".")
+    except Exception:
+        return f"{p} gs"
+
+
 def a_texto(it: dict) -> str:
-    precio = f"{it['precio']}" if it.get("precio") not in (None, "") else "consultar"
+    precio = precio_texto(it)
     linea = f"- SKU {it['sku']}: {it['nombre'] or 'producto'} | precio: {precio}"
     f = foto_url(it)
     if f:

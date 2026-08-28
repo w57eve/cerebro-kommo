@@ -253,7 +253,8 @@ async def _responder_charla(lead_id: str):
     try:
         from collections import deque as _deque
         hist = _memoria.setdefault(lead_id, _deque(maxlen=8))
-        res = await agente.procesar(texto, nombre=nombre, historial=list(hist))
+        res = await agente.procesar(texto, nombre=nombre, historial=list(hist),
+                                    lead_id=lead_id)
         ok = await kommo_api.entregar(lead_id, res["texto"])
         if ok:
             hist.append({"cliente": texto[:300], "agente": res["texto"][:300]})

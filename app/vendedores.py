@@ -24,13 +24,24 @@ for par in cfg.VENDEDORES.split(","):
 # la distribución "oficial" y pareja de leads ya la hace Kommo (Round Robin);
 # esto es solo para elegir a quién mostrar en el botón.
 _estado = {"i": 0}
+_asignados = {}   # lead_id -> (nombre, numero): un cliente = UN solo vendedor
 
 
-def siguiente():
+def siguiente(lead_id: str = ""):
+    """Vendedor para este cliente. PEGAJOSO por lead: si a este cliente ya se
+    le asignó un vendedor en esta charla, se repite el MISMO (nunca dos
+    vendedores distintos para la misma persona)."""
     if not _lista:
         return None
+    lead_id = str(lead_id or "")
+    if lead_id and lead_id in _asignados:
+        return _asignados[lead_id]
     nombre, numero = _lista[_estado["i"] % len(_lista)]
     _estado["i"] += 1
+    if lead_id:
+        if len(_asignados) > 5000:
+            _asignados.clear()
+        _asignados[lead_id] = (nombre, numero)
     return nombre, numero
 
 
@@ -38,12 +49,12 @@ def enlace(numero: str, texto: str) -> str:
     return f"https://wa.me/{numero}?text={quote(texto)}"
 
 
-def mensaje_derivacion(sku: str = "", consulta: str = "") -> dict:
+def mensaje_derivacion(sku: str = "", consulta: str = "", lead_id: str = "") -> dict:
     """Arma el texto para el cliente + el enlace al vendedor de turno.
 
     Devuelve {"texto": <lo que ve el cliente, con el link>, "vendedor": nombre}.
     """
-    sig = siguiente()
+    sig = siguiente(lead_id)
     if not sig:
         return {
             "texto": "En un momento te contacta un asesor. ¿Me dejás tu "

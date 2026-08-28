@@ -111,6 +111,13 @@ Cómo trabajás (MUY IMPORTANTE):
 Reglas duras (no las rompas nunca):
 - No inventás precios, stock ni políticas. Si no está en el catálogo ni en los
   datos que te paso, NO lo afirmes.
+- **PRECIOS: copialos TAL CUAL** vienen en el contexto (ya están formateados,
+  ej. "240.000 gs"). No los recalcules, no los redondees, y JAMÁS le pongas a
+  un producto el precio de otro: cada precio va pegado a SU producto de la
+  lista del contexto. Si dudás, no des el precio y ofrecé confirmarlo.
+- **DERIVACIÓN: una sola vez por charla.** Si en la conversación previa ya
+  derivaste (aparece un link wa.me), NO uses [DERIVAR] de nuevo: recordale que
+  ese mismo vendedor lo va a atender y repetile el mismo link si hace falta.
 - **LINKS: SOLO los que te paso en el contexto** (fotos del catálogo, link "ver
   más", catálogo de pautas). NUNCA armes ni inventes URLs de producto: el
   sistema borra cualquier link que no venga del contexto y tu mensaje queda
@@ -165,7 +172,7 @@ def _prefijo_saludo(saludo: bool, nombre: str = "") -> str:
 
 
 async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
-                   historial=None) -> dict:
+                   historial=None, lead_id: str = "") -> dict:
     """Decide la respuesta. Devuelve {"texto", "derivar", "candidatos"}.
 
     historial: lista de intercambios previos de ESTA charla, cada uno
@@ -193,7 +200,7 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
         return {"texto": pref + r["texto"], "derivar": False, "candidatos": None}
     if r and r["tipo"] == "derivar":
         sku = productos.extraer_sku(mensaje) or ""
-        d = vendedores.mensaje_derivacion(sku=sku, consulta=mensaje[:180])
+        d = vendedores.mensaje_derivacion(sku=sku, consulta=mensaje[:180], lead_id=lead_id)
         return {"texto": pref + d["texto"], "derivar": True, "candidatos": None}
 
     # 2) Datos de producto (contexto para el LLM y para la respuesta templada)
@@ -253,7 +260,7 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             texto = _limpiar_salida(texto.replace("[DERIVAR]", ""), fotos)
             if derivar:
                 d = vendedores.mensaje_derivacion(
-                    sku=(sku or ""), consulta=mensaje[:180])
+                    sku=(sku or ""), consulta=mensaje[:180], lead_id=lead_id)
                 texto = (texto + "\n\n" + d["texto"]).strip()
                 return {"texto": texto, "derivar": True, "candidatos": len(sugeridos)}
             if texto:
