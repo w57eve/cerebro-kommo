@@ -119,9 +119,25 @@ def indice_actual():
     return _cache["indice"]
 
 
+import os as _os
+
+# Base pública del cerebro: sirve las fotos OPTIMIZADAS (miniaturas rápidas)
+# en /foto/<sku>.jpg — la preview de WhatsApp carga al instante.
+FOTO_BASE = (_os.getenv("FOTO_BASE", "https://cerebro-kommo.onrender.com")
+             or "").rstrip("/")
+
+
+def foto_url(it: dict) -> str:
+    """Link de foto que se le pasa al cliente: la miniatura rápida del cerebro."""
+    if it.get("imagenes"):
+        return f"{FOTO_BASE}/foto/{it['sku']}.jpg"
+    return ""
+
+
 def a_texto(it: dict) -> str:
     precio = f"{it['precio']}" if it.get("precio") not in (None, "") else "consultar"
     linea = f"- SKU {it['sku']}: {it['nombre'] or 'producto'} | precio: {precio}"
-    if it.get("imagenes"):
-        linea += f" | foto: {it['imagenes'][0]}"
+    f = foto_url(it)
+    if f:
+        linea += f" | foto: {f}"
     return linea

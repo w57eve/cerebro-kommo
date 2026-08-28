@@ -326,6 +326,52 @@ async def webhook_mensajes(request: Request):
     return {"status": "ok"}
 
 
+# ── Fotos optimizadas ───────────────────────────────────────────────────────
+# Las fotos del storage de la web son pesadas y la vista previa de WhatsApp
+# tarda una barbaridad. Servimos una miniatura liviana (JPEG ~600px) desde acá:
+# el bot manda https://cerebro-kommo.onrender.com/foto/<sku>.jpg y la preview
+# carga al instante. Caché en memoria (las más pedidas quedan listas).
+_fotos_cache = {}   # sku -> bytes jpeg
+
+
+@app.get("/foto/{sku}.jpg")
+async def foto_sku(sku: str):
+    from fastapi.responses import Response
+    from . import productos as _prod
+
+    sku = "".join(c for c in sku if c.isalnum())[:20]
+    if sku in _fotos_cache:
+        return Response(content=_fotos_cache[sku], media_type="image/jpeg",
+                        headers={"Cache-Control": "public, max-age=86400"})
+    it = await _prod.por_sku(sku)
+    url = (it or {}).get("imagenes") and it["imagenes"][0] or ""
+    if not url:
+        return JSONResponse({"error": "sin foto"}, status_code=404)
+    try:
+        import io
+
+        import httpx as _httpx
+        from PIL import Image
+        async with _httpx.AsyncClient(timeout=25) as cli:
+            r = await cli.get(url, headers={"User-Agent": "cerebro"})
+            r.raise_for_status()
+        img = Image.open(io.BytesIO(r.content)).convert("RGB")
+        img.thumbnail((600, 600))
+        buf = io.BytesIO()
+        img.save(buf, "JPEG", quality=72, optimize=True)
+        data = buf.getvalue()
+        if len(_fotos_cache) > 800:
+            _fotos_cache.clear()
+        _fotos_cache[sku] = data
+        return Response(content=data, media_type="image/jpeg",
+                        headers={"Cache-Control": "public, max-age=86400"})
+    except Exception as e:
+        print(f"[FOTO] error sku={sku}: {e}", flush=True)
+        # último recurso: redirigir a la foto original
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url)
+
+
 @app.get("/aprendizaje")
 async def ver_aprendizaje(request: Request):
     """Resumen del registro de aprendizaje: tasas de error y consultas sin

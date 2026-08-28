@@ -25,7 +25,8 @@ _URL_RE = _re.compile(r"https?://[^\s)\]]+")
 
 # Prefijos de links LEGÍTIMOS (todo lo demás se considera inventado y se borra)
 _LINKS_BASE = (
-    "https://www.shoppingasia.com.py/storage/",   # fotos reales del catálogo
+    "https://www.shoppingasia.com.py/storage/",   # fotos originales del catálogo
+    "https://cerebro-kommo.onrender.com/foto/",   # fotos optimizadas (miniatura)
     "https://www.shoppingasia.com.py/buscador",   # resultados de búsqueda
     "https://catalogo.shoppingasia.com.py",       # catálogo de pautas
     "https://wa.me/",                             # derivación a vendedor
@@ -281,15 +282,15 @@ def _respuesta_productos(items: list) -> str:
     if len(items) == 1:
         it = items[0]
         t = f"Creo que buscás esto: *{it['nombre']}* — {_precio_txt(it)}."
-        if it.get("imagenes"):
-            t += f"\n📷 {it['imagenes'][0]}"
+        if productos.foto_url(it):
+            t += f"\n📷 {productos.foto_url(it)}"
         t += "\n¿Es este? Si querés te doy más datos o te paso con un vendedor 🙂"
         return t
     t = "Encontré estas opciones 👇\n"
     for it in items[:4]:
         t += f"\n• *{it['nombre']}* — {_precio_txt(it)}"
-        if it.get("imagenes"):
-            t += f"\n  📷 {it['imagenes'][0]}"
+        if productos.foto_url(it):
+            t += f"\n  📷 {productos.foto_url(it)}"
     t += "\n\n¿Cuál te interesa?"
     return t
 
