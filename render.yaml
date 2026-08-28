@@ -11,6 +11,10 @@ services:
     startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     healthCheckPath: /health
     envVars:
+      # Python fijado: 3.13 (el default nuevo de Render) no tiene ruedas para
+      # numpy 1.26 / onnxruntime 1.19 y el build falla en silencio.
+      - key: PYTHON_VERSION
+        value: "3.11.9"
       # Los VALORES se cargan en el panel de Render (Environment), NO acá.
       - key: ANTHROPIC_API_KEY
         sync: false
