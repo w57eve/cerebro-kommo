@@ -92,12 +92,14 @@ async def responder(return_url: str, mensaje: str):
             #   solo corre cuando el cliente escribe.
             # Configurable por env para poder ajustar sin re-subir codigo:
             #   KOMMO_GOTO_TIPO = question (bucle, default) | finish (terminar)
-            #   KOMMO_GOTO_STEP = numero del paso del widget (probar 1, si no 0 o 2)
+            #   KOMMO_GOTO_STEP = paso del FLUJO INTERNO DEL WIDGET (el JSON que
+            #     genera script.js en onSalesbotDesignerSave), NO del constructor
+            #     del bot en Kommo. Nuestro widget genera UN solo paso -> indice 0.
             _tipo = (os.getenv("KOMMO_GOTO_TIPO", "question") or "question").strip().lower()
             try:
-                _paso = int((os.getenv("KOMMO_GOTO_STEP", "1") or "1").strip())
+                _paso = int((os.getenv("KOMMO_GOTO_STEP", "0") or "0").strip())
             except Exception:
-                _paso = 1
+                _paso = 0
             handlers.append({"handler": "goto", "params": {"type": _tipo, "step": _paso}})
             print(f"[RESPONDER] goto tipo={_tipo} step={_paso}", flush=True)
     elif modo == "data":
