@@ -40,6 +40,8 @@ def _limpiar_salida(texto: str, permitidos_extra=()) -> str:
     (el bot viejo inventaba URLs de producto rotos: eso no puede volver a salir)."""
     # 1) meta-notas: [cualquier cosa] (la etiqueta [DERIVAR] ya fue procesada)
     texto = _re.sub(r"\[[^\]\n]*\]", "", texto)
+    # WhatsApp usa *negrita* con UNA estrella; el ** de markdown se ve roto.
+    texto = texto.replace("**", "*")
     # 2) links: solo los permitidos; la línea con un link inventado se borra entera
     permitidos = _LINKS_BASE + tuple(permitidos_extra)
 
@@ -269,6 +271,22 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             "https://catalogo.shoppingasia.com.py explicando que ahí están las "
             "ofertas publicadas (botón 'Hacer pedido' lo trae de vuelta acá). "
             "NO mandes ofertas genéricas de la página web.\n")
+
+    # "El de 116 mil", "el de 45.000 gs": es una REFERENCIA A PRECIO de algo
+    # que ya vio (en la charla, en el catálogo chico o en una foto), NO un
+    # producto para buscar. Sin esto, "116" matcheaba cualquier cosa (llegó a
+    # ofrecer estuches de celular a alguien que miraba botines).
+    if _re.search(r"\b\d{2,3}(?:[.,]\d{3})?\s*(?:mil|gs|guaranies|guaraníes)\b",
+                  mensaje.lower()):
+        contexto += (
+            "OJO: el cliente menciona un PRECIO como referencia ('el de X "
+            "mil'). NO es un producto para buscar: se refiere a algo que ya "
+            "vio (en esta charla, en el catálogo rápido o en una foto). Mirá "
+            "la conversación previa; si ahí está el producto de ese precio, "
+            "seguí con ese. Si no sabés cuál es, pedile el nombre o que toque "
+            "'Hacer pedido' en el catálogo para traer los datos. PROHIBIDO "
+            "ofrecer productos no relacionados solo porque coincida un "
+            "número.\n")
 
     if "(el cliente mandó una foto)" in mensaje:
         contexto += ("El cliente mandó una FOTO que no podés ver. No adivines "
