@@ -131,6 +131,27 @@ async def nombre_contacto(contact_id) -> str:
     return nombre
 
 
+async def respuesta_previa(lead_id) -> str:
+    """Última respuesta del bot guardada en el lead. Sirve para NO volver a
+    saludar cuando la memoria en RAM se perdió (reinicio/deploy)."""
+    if not (lead_id and listo()):
+        return ""
+    try:
+        async with httpx.AsyncClient(timeout=10) as cli:
+            campo = await _campo_id(cli)
+            r = await cli.get(f"{_base()}/api/v4/leads/{lead_id}",
+                              headers=_headers())
+            if r.status_code != 200 or not campo:
+                return ""
+            for f in (r.json().get("custom_fields_values") or []):
+                if f.get("field_id") == campo:
+                    vs = f.get("values") or []
+                    return str((vs[0] or {}).get("value") or "") if vs else ""
+    except Exception:
+        pass
+    return ""
+
+
 async def entregar(lead_id, texto: str) -> bool:
     """Escribe la respuesta en el campo del lead y lanza el bot que la envía."""
     if not (lead_id and texto):

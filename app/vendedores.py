@@ -92,9 +92,11 @@ def mensaje_derivacion(sku: str = "", consulta: str = "", lead_id: str = "") -> 
         partes.append(f"Consulta: {consulta}")
     pre = " ".join(partes)
     link = enlace(numero, pre)
+    rol = "vendedora especializada" if nombre.strip().lower().endswith("a") \
+        else "vendedor especializado"
     texto = (
-        f"Te paso con {nombre}, de nuestro equipo, que te va a atender 💬\n"
-        f"Tocá este enlace y te lleva directo al WhatsApp de {nombre} 👇\n"
-        f"{link}"
+        f"Te paso con {nombre}, {rol} de nuestro equipo 💬\n"
+        f"Tocá este enlace y te lleva directo a su WhatsApp para que te "
+        f"atienda 👇\n{link}"
     )
     return {"texto": texto, "vendedor": nombre}

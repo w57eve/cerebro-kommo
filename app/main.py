@@ -292,6 +292,12 @@ async def _responder_charla(lead_id: str):
     try:
         from collections import deque as _deque
         hist = _memoria.setdefault(lead_id, _deque(maxlen=8))
+        if not hist:
+            _previa = await kommo_api.respuesta_previa(lead_id)
+            if _previa:
+                hist.append({"cliente": "(mensajes anteriores de esta charla,"
+                                        " no disponibles)",
+                             "agente": _previa[:250]})
         res = await agente.procesar(texto, nombre=nombre, historial=list(hist),
                                     lead_id=lead_id,
                                     ad_id=ch.get("ad_id", ""),
