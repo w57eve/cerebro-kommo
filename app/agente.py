@@ -191,7 +191,9 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     saludo = reglas.es_saludo(mensaje)
 
     # Solo un saludo (sin pedido) -> bienvenida y a esperar el pedido.
-    if reglas.solo_saludo(mensaje):
+    # PERO si viene de una PAUTA, no: ahí el agente abre directo con el
+    # producto/sección del anuncio (sigue al LLM con ese contexto).
+    if reglas.solo_saludo(mensaje) and not ad_id:
         return {"texto": _bienvenida(nombre), "derivar": False, "candidatos": None}
 
     pref = _prefijo_saludo(saludo, nombre)
@@ -242,11 +244,38 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                          "elija, no adivines):\n")
             contexto += "\n".join(productos.a_texto(c) for c in cand) + "\n"
 
+    # VOCABULARIO DE PAUTAS: términos que la gente trae de la publicidad y que
+    # NO existen en el catálogo grande ni en el buscador de la web — esos
+    # productos viven en el CATÁLOGO CHICO pautado. Valor = término para el
+    # link opcional del buscador de la web. (Se amplía con cada pauta nueva.)
+    _PAUTA_TERMINOS = {
+        "todo terreno": "calzado",
+        "todoterreno": "calzado",
+        "irun": "calzado",
+        "i run": "calzado",
+    }
+    _msg_n = busqueda.normalizar(mensaje)
+    pauta_term = next((t for t in _PAUTA_TERMINOS if t in _msg_n), "")
+    if pauta_term:
+        contexto += (
+            f"OJO: el cliente menciona '{pauta_term}', que es de las PAUTAS y "
+            "NO está en el catálogo grande ni en la web con ese nombre: esos "
+            "modelos están en el CATÁLOGO CHICO. Respondé así: 1) decile que "
+            "esos modelos están en nuestro catálogo rápido y pasale el link "
+            "https://catalogo.shoppingasia.com.py explicando en simple que "
+            "ahí ve modelos y talles y que al tocar 'Hacer pedido' vuelve acá "
+            "con el calzado elegido; 2) si es calzado, recordá la horma chica "
+            "(conviene un número más); 3) OPCIONAL al final: el link 'ver más' "
+            "de la web por si quiere ver más calzados. NO digas 'no tenemos'.\n")
+
     # Link "ver más": resultados de ESTA búsqueda en la web (jerga ya mapeada,
     # ej. championes -> calzado). VERIFICADO contra el catálogo: corrige tipeos
     # (michila -> mochila) y descarta palabras que no existen en ningún producto.
     _idx = productos.indice_actual()
-    term_web = _idx.termino_web(mensaje) if _idx else busqueda.termino_web(mensaje)
+    if pauta_term:
+        term_web = _PAUTA_TERMINOS[pauta_term]
+    else:
+        term_web = _idx.termino_web(mensaje) if _idx else busqueda.termino_web(mensaje)
     link_web = ""
     if term_web and not sku:
         from urllib.parse import quote as _q

@@ -63,6 +63,14 @@ def contexto_anuncio(ad_id: str) -> str:
     partes = [f"La conversación entró desde la publicidad '{a['representa']}'"]
     if a.get("tipo"):
         partes.append(f"(tipo: {a['tipo']})")
+    if a.get("sku") and a["sku"] not in ("", "—", "-"):
+        partes.append(f". SKU(s) del anuncio: {a['sku']}")
     if a.get("alcance"):
         partes.append(f". Enfoque: {a['alcance']}")
+    partes.append(
+        ". IMPORTANTE: el cliente YA vio ese anuncio; NO preguntes en genérico "
+        "'¿qué estás buscando?'. Saludá y arrancá DIRECTO con ese producto/"
+        "sección (precio, opciones, talle/color si aplica; si es calzado de "
+        "pauta, aplicá el flujo de horma chica + catálogo)."
+    )
     return " ".join(partes)
