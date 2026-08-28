@@ -240,24 +240,30 @@ def _extraer_mensajes(body: dict) -> list:
     return msgs
 
 
-async def _describir_foto(url: str) -> str:
-    """Descarga la foto que mandó el cliente (link del webhook) y se la
-    muestra a la IA. Devuelve la descripción, o "" si no se pudo."""
+async def _analizar_foto(url: str):
+    """Descarga la foto del cliente UNA vez y corre en paralelo:
+    - VISIÓN (Claude): descripción en palabras.
+    - MATCH VISUAL (CLIP/DINO): SKUs del catálogo más parecidos.
+    Devuelve (descripcion, [(sku, similitud), ...])."""
     try:
         import httpx as _httpx
         async with _httpx.AsyncClient(timeout=15, follow_redirects=True) as cli:
             r = await cli.get(url)
         if r.status_code != 200 or not r.content:
             print(f"[VISION] descarga fallo HTTP {r.status_code}", flush=True)
-            return ""
+            return "", []
         mt = (r.headers.get("content-type") or "image/jpeg").split(";")[0]
         if not mt.startswith("image"):
-            return ""
+            return "", []
+        from . import busqueda_imagen as _bi
         from . import llm as _llm
-        return await _asyncio.to_thread(_llm.describir_imagen, r.content, mt)
+        t_desc = _asyncio.to_thread(_llm.describir_imagen, r.content, mt)
+        t_match = _bi.buscar_por_imagen(r.content)
+        desc, matches = await _asyncio.gather(t_desc, t_match)
+        return desc or "", matches or []
     except Exception as e:
         print(f"[VISION] error: {e}", flush=True)
-        return ""
+        return "", []
 
 
 async def _responder_charla(lead_id: str):
@@ -273,8 +279,9 @@ async def _responder_charla(lead_id: str):
     # VISIÓN: si mandó foto(s), la IA la mira y su descripción entra al
     # mensaje -> la búsqueda y la memoria trabajan con lo que se VE.
     fotos = ch.pop("fotos", []) or []
+    foto_matches = []
     if fotos:
-        desc = await _describir_foto(fotos[-1])
+        desc, foto_matches = await _analizar_foto(fotos[-1])
         if desc:
             texto = texto.replace("(el cliente mandó una foto)", "").strip()
             texto = (texto + f"\n(foto del cliente: {desc})").strip()
@@ -289,7 +296,8 @@ async def _responder_charla(lead_id: str):
                                     lead_id=lead_id,
                                     ad_id=ch.get("ad_id", ""),
                                     origen=("pauta" if ch.get("pauta")
-                                            else ch.get("origen", "")))
+                                            else ch.get("origen", "")),
+                                    foto_matches=foto_matches)
         ok = await kommo_api.entregar(lead_id, res["texto"])
         if ok:
             hist.append({"cliente": texto[:300], "agente": res["texto"][:300]})

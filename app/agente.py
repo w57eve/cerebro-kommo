@@ -226,7 +226,8 @@ def _prefijo_saludo(saludo: bool, nombre: str = "") -> str:
 
 
 async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
-                   historial=None, lead_id: str = "", origen: str = "") -> dict:
+                   historial=None, lead_id: str = "", origen: str = "",
+                   foto_matches=None) -> dict:
     """Decide la respuesta. Devuelve {"texto", "derivar", "candidatos"}.
 
     historial: lista de intercambios previos de ESTA charla, cada uno
@@ -350,6 +351,31 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                          "elija, no adivines):\n")
             for _c in cand:
                 contexto += await _linea(_c) + "\n"
+
+    # COINCIDENCIA VISUAL: la foto del cliente ya fue comparada contra las
+    # fotos de todo el catálogo (mismo motor del verificador de precios).
+    if foto_matches:
+        _visuales = []
+        for _sku, _score in foto_matches:
+            _it = await productos.por_sku(_sku)
+            if not _it or _score < 0.80:
+                continue
+            _conf = "ALTA" if _score >= 0.88 else "MEDIA"
+            _visuales.append((_conf, _score, _it))
+        if _visuales:
+            contexto += ("COINCIDENCIA VISUAL: la foto del cliente se comparó "
+                         "contra las fotos de TODO el catálogo. Resultados:\n")
+            for _conf, _score, _it in _visuales:
+                contexto += (f"- confianza {_conf} ({_score:.0%}): "
+                             + await _linea(_it) + "\n")
+            contexto += ("Con confianza ALTA presentá ese producto CONFIRMANDO "
+                         "('¿es este? [nombre, precio, foto]'). Con MEDIA "
+                         "mostrá las opciones y que elija. La foto es "
+                         "sugerencia, no veredicto: nunca afirmes sin "
+                         "confirmar.\n")
+            _ya = {x[2]["sku"] for x in _visuales}
+            sugeridos = [x[2] for x in _visuales] + [
+                s for s in sugeridos if s.get("sku") not in _ya]
 
     # REGLA DE ORO DE CALZADOS: toda consulta de la familia calzado (champion,
     # botines, chutera, futsal, todo terreno, IRUN...) — venga de pauta, de la

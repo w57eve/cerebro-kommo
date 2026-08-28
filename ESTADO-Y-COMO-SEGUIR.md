@@ -154,6 +154,32 @@ FOTO REAL (pendiente en curso):
   el mensaje de foto -> requiere acceso al Meta Business / developers de la
   cuenta que conectó WhatsApp Cloud API.
 
+## 0.4 RONDA 2026-08-28 (noche) — el agente VE y usa las 3 bases
+- VISIÓN (Claude): las fotos de clientes se descargan del link del webhook
+  (amojo, sin auth) y la IA las describe -> búsqueda + memoria de la charla.
+  Las capturas del catálogo se leen (nombre y precio incluidos).
+- MATCH VISUAL (app/busqueda_imagen.py): reusa el índice de imágenes del
+  verificador (CLIP ViT-B/16, 24.765 fotos, publicado en /indice/). El server
+  baja el modelo ONNX cuantizado de HuggingFace y compara la foto del cliente
+  contra TODO el catálogo. Umbrales calibrados: ALTA >=0.88, MEDIA >=0.80.
+  Si algo falla, sigue solo con la descripción (tolerante). Para apagarlo:
+  FOTO_MATCH=0 en Render (ej. si la RAM del starter no alcanza).
+- CATÁLOGO RÁPIDO por SKU (app/catalogo_chico.py): lee catalogo.json publicado
+  (hoy CALZADO IRUN + CROCS, 147 SKUs); cada candidato se marca "ESTÁ EN EL
+  CATÁLOGO RÁPIDO (sección X)" solo si su SKU está. Escala solo al publicar
+  rubros nuevos.
+- Audio (v2): tipo voice/audio/ptt -> mensaje de cortesía + ofrece derivar
+  ("derivame"/"pasame con" derivan por regla).
+- Higiene: ** -> * (negrita WhatsApp), mexicanismos reemplazados por código
+  (te late -> te parece, etc.), referencia a precio ("el de 116 mil") no se
+  busca como producto, link de la web SIEMPRE al final en calzados.
+- Derivación: "Tocá este enlace y te lleva al WhatsApp de {nombre}", rotación
+  equitativa persistida en disco + pegajosa por cliente.
+- Ofertas: "¿siguen las ofertas?" -> confirma y pregunta qué publicación vio
+  (sin mandar catálogos a ciegas; catálogo chico solo si es calzado).
+- Pautas: identificación exacta pendiente de que el usuario ponga el producto
+  en el mensaje prellenado de cada anuncio de Meta (Kommo no pasa el ad id).
+
 ## 1. Dónde está TODO
 - Código del cerebro (GitHub): repo w57eve/cerebro-kommo. Copia local en
   C:\Users\Admin\Documents\aplicacion\automatizacion-kommo\cerebro-kommo
