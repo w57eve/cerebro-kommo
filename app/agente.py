@@ -208,7 +208,7 @@ def _prefijo_saludo(saludo: bool, nombre: str = "") -> str:
 
 
 async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
-                   historial=None, lead_id: str = "") -> dict:
+                   historial=None, lead_id: str = "", origen: str = "") -> dict:
     """Decide la respuesta. Devuelve {"texto", "derivar", "candidatos"}.
 
     historial: lista de intercambios previos de ESTA charla, cada uno
@@ -257,6 +257,17 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     ctx_ad = conocimiento.contexto_anuncio(ad_id)
     if ctx_ad:
         contexto += ctx_ad + "\n"
+    elif (origen or "").lower() in ("facebook", "instagram", "instagram_business"):
+        contexto += (
+            f"El chat entró por {origen} (desde una publicación/pauta de redes, "
+            "no sabemos cuál exactamente). Si el cliente pide 'más información', "
+            "'la oferta' o 'lo del anuncio', se refiere a LO QUE VIO en esa "
+            "publicación: casi siempre son los productos del CATÁLOGO CHICO "
+            "pautado. Respondé así: preguntá cuál producto vio (o pedile que "
+            "mande la foto/captura) Y en el MISMO mensaje pasale "
+            "https://catalogo.shoppingasia.com.py explicando que ahí están las "
+            "ofertas publicadas (botón 'Hacer pedido' lo trae de vuelta acá). "
+            "NO mandes ofertas genéricas de la página web.\n")
 
     sugeridos = []
     sku = productos.extraer_sku(mensaje)

@@ -197,6 +197,7 @@ _WEBHOOK_CLAVE = (_os.getenv("WEBHOOK_CLAVE", "") or "").strip()
 _charlas = {}   # lead_id -> {"textos": [...], "contact_id": str, "tarea": Task}
 _vistos = {}    # message_id -> timestamp (dedupe de reintentos del webhook)
 _memoria = {}   # lead_id -> deque de intercambios {"cliente","agente"} (memoria)
+_ultimos_raw = []   # últimos webhooks crudos (para descubrir campos de pautas)
 
 
 @app.on_event("startup")
@@ -255,7 +256,8 @@ async def _responder_charla(lead_id: str):
         hist = _memoria.setdefault(lead_id, _deque(maxlen=8))
         res = await agente.procesar(texto, nombre=nombre, historial=list(hist),
                                     lead_id=lead_id,
-                                    ad_id=ch.get("ad_id", ""))
+                                    ad_id=ch.get("ad_id", ""),
+                                    origen=ch.get("origen", ""))
         ok = await kommo_api.entregar(lead_id, res["texto"])
         if ok:
             hist.append({"cliente": texto[:300], "agente": res["texto"][:300]})
@@ -302,6 +304,8 @@ async def webhook_mensajes(request: Request):
     # abre directo con ese producto/sección en vez de preguntar a ciegas.
     from . import conocimiento as _cono
     raw_str = raw.decode("utf-8", "replace") if raw else ""
+    _ultimos_raw.append({"ts": int(_time.time()), "raw": raw_str[:1500]})
+    del _ultimos_raw[:-20]
     ad_id = next((k for k in _cono.ANUNCIOS if k and k in raw_str), "")
     if ad_id:
         print(f"[MENSAJES] pauta detectada: ad_id={ad_id} "
@@ -338,6 +342,7 @@ async def webhook_mensajes(request: Request):
         ch["textos"].append(texto)
         ch["contact_id"] = str(m.get("contact_id") or ch["contact_id"])
         ch["ad_id"] = ad_id or ch.get("ad_id", "")
+        ch["origen"] = str(m.get("origin") or ch.get("origen", ""))
         if ch["tarea"] and not ch["tarea"].done():
             ch["tarea"].cancel()  # reinicia la espera: el cliente sigue escribiendo
         ch["tarea"] = _asyncio.create_task(_responder_charla(lead_id))
@@ -390,6 +395,15 @@ async def foto_sku(sku: str):
         # último recurso: redirigir a la foto original
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url)
+
+
+@app.get("/ultimos-webhooks")
+async def ver_ultimos_webhooks(request: Request):
+    """Últimos webhooks CRUDOS: para descubrir en qué campo llega la
+    referencia del anuncio de Meta y sumarla al mapa de pautas."""
+    if _WEBHOOK_CLAVE and request.query_params.get("clave", "") != _WEBHOOK_CLAVE:
+        return JSONResponse({"error": "clave"}, status_code=403)
+    return {"webhooks": _ultimos_raw}
 
 
 @app.get("/aprendizaje")
