@@ -288,6 +288,17 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             "ofrecer productos no relacionados solo porque coincida un "
             "número.\n")
 
+    if "(foto del cliente:" in mensaje:
+        contexto += (
+            "El sistema de VISIÓN ya miró la foto del cliente: su descripción "
+            "va en el mensaje entre paréntesis. Usála como si VOS hubieras "
+            "visto la foto (viste la foto, a través del sistema): identificá "
+            "el producto con los candidatos del contexto, que salen de esa "
+            "descripción. Si es una captura del catálogo con nombre/precio "
+            "visibles, usá ESOS datos directamente. Si el cliente después "
+            "dice 'esa marca' o 'ese', se refiere a LO DE LA FOTO. Nunca "
+            "digas que no podés ver imágenes.\n")
+
     if "(el cliente mandó una foto)" in mensaje:
         contexto += ("El cliente mandó una FOTO que no podés ver. No adivines "
                      "qué es: pedile con buena onda el nombre del producto o "

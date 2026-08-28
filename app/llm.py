@@ -28,6 +28,40 @@ def disponible() -> bool:
     return _cliente is not None
 
 
+def describir_imagen(datos: bytes, media_type: str = "image/jpeg") -> str:
+    """VISIÓN: mira la foto que mandó el cliente y la describe con palabras
+    útiles para buscar el producto en el catálogo. Síncrona (usar to_thread)."""
+    if _cliente is None or not datos:
+        return ""
+    import base64
+    b64 = base64.standard_b64encode(datos).decode()
+    try:
+        r = _cliente.messages.create(
+            model=cfg.ANTHROPIC_MODEL,
+            max_tokens=150,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "image",
+                     "source": {"type": "base64", "media_type": media_type,
+                                "data": b64}},
+                    {"type": "text", "text":
+                        "Foto enviada por un cliente de una tienda en Paraguay. "
+                        "Describí en UNA línea qué producto se ve, con palabras "
+                        "útiles para buscarlo en un catálogo: tipo de producto, "
+                        "marca si se lee, color, y cualquier texto visible "
+                        "(si es una captura de catálogo, incluí el nombre y "
+                        "precio que se lean). Solo la descripción, nada más."},
+                ],
+            }],
+        )
+        return "".join(
+            b.text for b in r.content if getattr(b, "type", None) == "text"
+        ).strip()
+    except Exception:
+        return ""
+
+
 def responder(sistema: str, contexto: str, mensaje: str, modelo: str = None) -> str:
     """Llamada síncrona a Anthropic. Desde el código async se invoca con
     asyncio.to_thread(...) para no bloquear el event loop."""

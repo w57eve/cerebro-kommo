@@ -230,12 +230,34 @@ def _extraer_mensajes(body: dict) -> list:
                 "entity_type": g("entity_type"),
                 "contact_id": g("contact_id"), "talk_id": g("talk_id"),
                 "origin": g("origin"),
+                "message_type": g("message_type"),
+                "adjunto": body.get(f"{pref}[{i}][attachment][link]", ""),
                 "author": {"type": body.get(f"{pref}[{i}][author][type]", "")},
             })
             i += 1
         if msgs:
             break
     return msgs
+
+
+async def _describir_foto(url: str) -> str:
+    """Descarga la foto que mandó el cliente (link del webhook) y se la
+    muestra a la IA. Devuelve la descripción, o "" si no se pudo."""
+    try:
+        import httpx as _httpx
+        async with _httpx.AsyncClient(timeout=15, follow_redirects=True) as cli:
+            r = await cli.get(url)
+        if r.status_code != 200 or not r.content:
+            print(f"[VISION] descarga fallo HTTP {r.status_code}", flush=True)
+            return ""
+        mt = (r.headers.get("content-type") or "image/jpeg").split(";")[0]
+        if not mt.startswith("image"):
+            return ""
+        from . import llm as _llm
+        return await _asyncio.to_thread(_llm.describir_imagen, r.content, mt)
+    except Exception as e:
+        print(f"[VISION] error: {e}", flush=True)
+        return ""
 
 
 async def _responder_charla(lead_id: str):
@@ -248,6 +270,15 @@ async def _responder_charla(lead_id: str):
     if not ch or not ch["textos"]:
         return
     texto = "\n".join(ch["textos"])
+    # VISIÓN: si mandó foto(s), la IA la mira y su descripción entra al
+    # mensaje -> la búsqueda y la memoria trabajan con lo que se VE.
+    fotos = ch.pop("fotos", []) or []
+    if fotos:
+        desc = await _describir_foto(fotos[-1])
+        if desc:
+            texto = texto.replace("(el cliente mandó una foto)", "").strip()
+            texto = (texto + f"\n(foto del cliente: {desc})").strip()
+            print(f"[VISION] lead={lead_id} foto -> {desc[:100]!r}", flush=True)
     nombre = await kommo_api.nombre_contacto(ch.get("contact_id"))
     print(f"[CHAT] lead={lead_id} nombre={nombre!r} msgs={len(ch['textos'])} "
           f"texto={texto[:120]!r}", flush=True)
@@ -360,6 +391,10 @@ async def webhook_mensajes(request: Request):
         ch["contact_id"] = str(m.get("contact_id") or ch["contact_id"])
         ch["ad_id"] = ad_id or ch.get("ad_id", "")
         ch["origen"] = str(m.get("origin") or ch.get("origen", ""))
+        _adj = str(m.get("adjunto") or "")
+        if _adj.startswith("http"):
+            ch.setdefault("fotos", []).append(_adj)
+            del ch["fotos"][:-2]   # solo las 2 más recientes
         if ch_pauta and not ch.get("ad_id"):
             ch["origen"] = ch["origen"] or "waba"
             ch["pauta"] = True
