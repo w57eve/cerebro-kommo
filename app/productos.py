@@ -72,6 +72,38 @@ async def _descargar():
     return por_sku, items
 
 
+RESPALDO = "/tmp/catalogo_respaldo.json"
+
+
+def _guardar_respaldo(items):
+    """Copia local del último catálogo BUENO: si el remoto se cae y el server
+    se reinicia, arrancamos con esto en vez de con 0 productos."""
+    try:
+        import json as _json
+        with open(RESPALDO, "w", encoding="utf-8") as f:
+            _json.dump(items, f, ensure_ascii=False)
+    except Exception:
+        pass
+
+
+def _cargar_respaldo():
+    try:
+        import json as _json
+        from pathlib import Path as _P
+        if not _P(RESPALDO).exists():
+            return None
+        items = _json.loads(_P(RESPALDO).read_text(encoding="utf-8"))
+        return items if isinstance(items, list) and items else None
+    except Exception:
+        return None
+
+
+def _instalar(items):
+    por_sku = {it["sku"]: it for it in items}
+    _cache.update(ts=time.time(), por_sku=por_sku, items=items,
+                  indice=busqueda.Indice(items))
+
+
 async def _asegurar():
     vencido = (time.time() - _cache["ts"]) > cfg.REFRESCO_MIN * 60
     if _cache["indice"] is not None and not vencido:
@@ -82,12 +114,25 @@ async def _asegurar():
             return
         try:
             por_sku, items = await _descargar()
-            if por_sku:
-                indice = busqueda.Indice(items)   # arma el índice invertido/BM25
-                _cache.update(ts=time.time(), por_sku=por_sku,
-                              items=items, indice=indice)
-        except Exception:
-            pass  # si falla, seguimos con lo que haya (o vacío)
+            actual = len(_cache["items"])
+            # GUARDIA: no pisar un catálogo bueno con uno vacío o muy encogido
+            # (bache de publicación). Con memoria vacía aceptamos lo que venga.
+            if items and (actual == 0 or len(items) >= actual * 0.5):
+                _instalar(items)
+                _guardar_respaldo(items)
+            elif items:
+                print(f"[CATALOGO] descarga sospechosa ({len(items)} vs "
+                      f"{actual} en memoria): se conserva el actual.", flush=True)
+                _cache["ts"] = time.time()   # reintenta recién en el próximo ciclo
+        except Exception as e:
+            print(f"[CATALOGO] descarga fallo: {e}", flush=True)
+    # ¿Seguimos sin nada? (remoto caído + server recién reiniciado) -> respaldo
+    if not _cache["items"]:
+        items = _cargar_respaldo()
+        if items:
+            _instalar(items)
+            print(f"[CATALOGO] remoto caído: usando RESPALDO local "
+                  f"({len(items)} productos).", flush=True)
 
 
 def extraer_sku(texto: str):
