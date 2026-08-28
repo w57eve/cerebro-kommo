@@ -23,7 +23,28 @@ for par in cfg.VENDEDORES.split(","):
 # Round-robin en memoria. Con varios workers no es perfectamente parejo, pero
 # la distribución "oficial" y pareja de leads ya la hace Kommo (Round Robin);
 # esto es solo para elegir a quién mostrar en el botón.
-_estado = {"i": 0}
+# Rotación EQUITATIVA: el contador se guarda en disco para que un reinicio o
+# deploy no vuelva a arrancar siempre por el primer vendedor de la lista.
+_RUTA_RR = "/tmp/vendedor_rr.txt"
+
+
+def _cargar_i() -> int:
+    try:
+        return int(open(_RUTA_RR).read().strip())
+    except Exception:
+        import random
+        return random.randrange(len(_lista)) if _lista else 0
+
+
+def _guardar_i(i: int):
+    try:
+        with open(_RUTA_RR, "w") as f:
+            f.write(str(i))
+    except Exception:
+        pass
+
+
+_estado = {"i": _cargar_i()}
 _asignados = {}   # lead_id -> (nombre, numero): un cliente = UN solo vendedor
 
 
@@ -38,6 +59,7 @@ def siguiente(lead_id: str = ""):
         return _asignados[lead_id]
     nombre, numero = _lista[_estado["i"] % len(_lista)]
     _estado["i"] += 1
+    _guardar_i(_estado["i"])
     if lead_id:
         if len(_asignados) > 5000:
             _asignados.clear()
@@ -71,7 +93,8 @@ def mensaje_derivacion(sku: str = "", consulta: str = "", lead_id: str = "") -> 
     pre = " ".join(partes)
     link = enlace(numero, pre)
     texto = (
-        f"Te paso con {nombre}, de nuestro equipo, que te va a ayudar 💬\n"
-        f"👉 {link}"
+        f"Te paso con {nombre}, de nuestro equipo, que te va a atender 💬\n"
+        f"Tocá este enlace y te lleva directo al WhatsApp de {nombre} 👇\n"
+        f"{link}"
     )
     return {"texto": texto, "vendedor": nombre}

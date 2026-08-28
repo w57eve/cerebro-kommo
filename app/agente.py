@@ -358,8 +358,9 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             "están los modelos con talles y que al tocar 'Hacer pedido' vuelve "
             "acá con el calzado elegido; si preguntó por talle/calce, recordá "
             "la horma chica (conviene un número más). "
-            "2) DESPUÉS cerrá con: 'acá tenés más opciones 👉' + el link 'ver "
-            "más' de la web que te doy abajo. "
+            "2) el link de la web va SIEMPRE AL FINAL, como ÚLTIMO renglón del "
+            "mensaje: 'acá tenés más opciones 👉' + el link 'ver más' que te "
+            "doy abajo. Nada va después de ese link. "
             "Si además encontré candidatos que coincidan con lo pedido, podés "
             "mostrar 2-3 con foto y precio antes del paso 1. NUNCA digas 'no "
             "tenemos' en calzados: lo pautado está en el catálogo chico.\n")
