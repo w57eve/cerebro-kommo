@@ -27,8 +27,15 @@ def cargar_anuncios() -> dict:
         if not linea.startswith("|"):
             continue
         cols = [c.strip() for c in linea.strip("|").split("|")]
-        if not cols or not cols[0].isdigit():
+        if not cols:
+            continue
+        clave = cols[0].strip().rstrip("/")
+        # clave valida: ID numerico de Meta O la URL de la publicacion
+        es_url = ("instagram.com/" in clave or "facebook.com/" in clave
+                  or "fb.com/" in clave or clave.startswith("http"))
+        if not (clave.isdigit() or es_url):
             continue  # saltea encabezado y separadores
+        cols[0] = clave
         # Formato nuevo (6 col): ID | Representa | Tipo | SKU | Alcance | Notas
         # Formato viejo (4 col): ID | Producto | SKU | Notas
         if len(cols) >= 5:

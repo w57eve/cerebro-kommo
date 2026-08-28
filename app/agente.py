@@ -257,7 +257,8 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     ctx_ad = conocimiento.contexto_anuncio(ad_id)
     if ctx_ad:
         contexto += ctx_ad + "\n"
-    elif (origen or "").lower() in ("facebook", "instagram", "instagram_business"):
+    elif (origen or "").lower() in ("facebook", "instagram",
+                                    "instagram_business", "pauta"):
         contexto += (
             f"El chat entró por {origen} (desde una publicación/pauta de redes, "
             "no sabemos cuál exactamente). Si el cliente pide 'más información', "
@@ -268,6 +269,13 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             "https://catalogo.shoppingasia.com.py explicando que ahí están las "
             "ofertas publicadas (botón 'Hacer pedido' lo trae de vuelta acá). "
             "NO mandes ofertas genéricas de la página web.\n")
+
+    if "(el cliente mandó una foto)" in mensaje:
+        contexto += ("El cliente mandó una FOTO que no podés ver. No adivines "
+                     "qué es: pedile con buena onda el nombre del producto o "
+                     "el SKU (o que lo escriba), y ofrecé el asesor si prefiere. "
+                     "Si en la conversación previa ya pasó esto, derivá con "
+                     "[DERIVAR].\n")
 
     sugeridos = []
     sku = productos.extraer_sku(mensaje)
@@ -289,36 +297,39 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                          "elija, no adivines):\n")
             contexto += "\n".join(productos.a_texto(c) for c in cand) + "\n"
 
-    # VOCABULARIO DE PAUTAS: términos que la gente trae de la publicidad y que
-    # NO existen en el catálogo grande ni en el buscador de la web — esos
-    # productos viven en el CATÁLOGO CHICO pautado. Valor = término para el
-    # link opcional del buscador de la web. (Se amplía con cada pauta nueva.)
-    _PAUTA_TERMINOS = {
-        "todo terreno": "calzado",
-        "todoterreno": "calzado",
-        "irun": "calzado",
-        "i run": "calzado",
-    }
+    # REGLA DE ORO DE CALZADOS: toda consulta de la familia calzado (champion,
+    # botines, chutera, futsal, todo terreno, IRUN...) — venga de pauta, de la
+    # página o directa — se responde con el CATÁLOGO CHICO primero y el link
+    # de la web con "más opciones" después. Los modelos pautados viven en el
+    # catálogo chico (en el grande/web muchos ni aparecen con ese nombre).
+    _CALZADO_TOKENS = {"champion", "champione", "zapatilla", "teni", "calzado",
+                       "botin", "chutera", "taquilla", "futsal", "futbol",
+                       "deportivo", "irun"}
     _msg_n = busqueda.normalizar(mensaje)
-    pauta_term = next((t for t in _PAUTA_TERMINOS if t in _msg_n), "")
+    _toks = set(busqueda.tokenizar(mensaje))
+    pauta_term = ("calzado" if (_toks & _CALZADO_TOKENS
+                                or "todo terreno" in _msg_n
+                                or "todoterreno" in _msg_n) else "")
     if pauta_term:
         contexto += (
-            f"OJO: el cliente menciona '{pauta_term}', que es de las PAUTAS y "
-            "NO está en el catálogo grande ni en la web con ese nombre: esos "
-            "modelos están en el CATÁLOGO CHICO. Respondé así: 1) decile que "
-            "esos modelos están en nuestro catálogo rápido y pasale el link "
-            "https://catalogo.shoppingasia.com.py explicando en simple que "
-            "ahí ve modelos y talles y que al tocar 'Hacer pedido' vuelve acá "
-            "con el calzado elegido; 2) si es calzado, recordá la horma chica "
-            "(conviene un número más); 3) OPCIONAL al final: el link 'ver más' "
-            "de la web por si quiere ver más calzados. NO digas 'no tenemos'.\n")
+            "CONSULTA DE CALZADO (regla fija, en este ORDEN): "
+            "1) PRIMERO el catálogo rápido: pasá "
+            "https://catalogo.shoppingasia.com.py explicando en simple que ahí "
+            "están los modelos con talles y que al tocar 'Hacer pedido' vuelve "
+            "acá con el calzado elegido; si preguntó por talle/calce, recordá "
+            "la horma chica (conviene un número más). "
+            "2) DESPUÉS cerrá con: 'acá tenés más opciones 👉' + el link 'ver "
+            "más' de la web que te doy abajo. "
+            "Si además encontré candidatos que coincidan con lo pedido, podés "
+            "mostrar 2-3 con foto y precio antes del paso 1. NUNCA digas 'no "
+            "tenemos' en calzados: lo pautado está en el catálogo chico.\n")
 
     # Link "ver más": resultados de ESTA búsqueda en la web (jerga ya mapeada,
     # ej. championes -> calzado). VERIFICADO contra el catálogo: corrige tipeos
     # (michila -> mochila) y descarta palabras que no existen en ningún producto.
     _idx = productos.indice_actual()
     if pauta_term:
-        term_web = _PAUTA_TERMINOS[pauta_term]
+        term_web = pauta_term   # "calzado": familia de la consulta
     else:
         term_web = _idx.termino_web(mensaje) if _idx else busqueda.termino_web(mensaje)
     link_web = ""

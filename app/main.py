@@ -257,7 +257,8 @@ async def _responder_charla(lead_id: str):
         res = await agente.procesar(texto, nombre=nombre, historial=list(hist),
                                     lead_id=lead_id,
                                     ad_id=ch.get("ad_id", ""),
-                                    origen=ch.get("origen", ""))
+                                    origen=("pauta" if ch.get("pauta")
+                                            else ch.get("origen", "")))
         ok = await kommo_api.entregar(lead_id, res["texto"])
         if ok:
             hist.append({"cliente": texto[:300], "agente": res["texto"][:300]})
@@ -303,10 +304,15 @@ async def webhook_mensajes(request: Request):
     # CRUDO del webhook, venga en el campo que venga. Si aparece, el agente
     # abre directo con ese producto/sección en vez de preguntar a ciegas.
     from . import conocimiento as _cono
+    from urllib.parse import unquote_plus as _unq
     raw_str = raw.decode("utf-8", "replace") if raw else ""
     _ultimos_raw.append({"ts": int(_time.time()), "raw": raw_str[:1500]})
     del _ultimos_raw[:-20]
-    ad_id = next((k for k in _cono.ANUNCIOS if k and k in raw_str), "")
+    # se busca en el raw DECODIFICADO: asi matchean tanto IDs numericos como
+    # URLs de publicaciones (instagram.com/p/..., fb.com/...) del mapa.
+    _raw_dec = _unq(raw_str)
+    ad_id = next((k for k in _cono.ANUNCIOS
+                  if k and (k in _raw_dec or k in raw_str)), "")
     if ad_id:
         print(f"[MENSAJES] pauta detectada: ad_id={ad_id} "
               f"({_cono.ANUNCIOS[ad_id].get('representa','')})", flush=True)
@@ -333,16 +339,30 @@ async def webhook_mensajes(request: Request):
             _vistos[mid] = ahora
         lead_id = str(m.get("entity_id") or "")
         texto = (m.get("text") or "").strip()
-        if not texto and ad_id:
-            texto = "Hola"   # clic en la pauta sin texto: igual hay que atender
+        # Foto/adjunto sin texto: NO ignorar (el hilo moria en silencio).
+        tipo_msg = str(m.get("message_type") or "")
+        if not texto and (ad_id or tipo_msg in ("picture", "file", "video")):
+            texto = "(el cliente mandó una foto)" if tipo_msg else "Hola"
         if not lead_id or not texto:
             continue
+        # Plantilla de pauta click-to-WhatsApp: marca entrada desde publicidad
+        # aunque el origen sea waba y Kommo no pase el ID del anuncio.
+        _t = texto.lower()
+        if ("quiero más información" in _t or "quiero mas informacion" in _t
+                or "necesito más información" in _t
+                or "necesito mas informacion" in _t):
+            ch_pauta = True
+        else:
+            ch_pauta = False
         ch = _charlas.setdefault(lead_id, {"textos": [], "contact_id": "",
                                            "tarea": None, "ad_id": ""})
         ch["textos"].append(texto)
         ch["contact_id"] = str(m.get("contact_id") or ch["contact_id"])
         ch["ad_id"] = ad_id or ch.get("ad_id", "")
         ch["origen"] = str(m.get("origin") or ch.get("origen", ""))
+        if ch_pauta and not ch.get("ad_id"):
+            ch["origen"] = ch["origen"] or "waba"
+            ch["pauta"] = True
         if ch["tarea"] and not ch["tarea"].done():
             ch["tarea"].cancel()  # reinicia la espera: el cliente sigue escribiendo
         ch["tarea"] = _asyncio.create_task(_responder_charla(lead_id))

@@ -80,6 +80,7 @@ _GRUPOS = [
     ["cargador", "cargadores"],
     ["mochila", "mochilas"],
     ["pirex", "fuente", "asadera"],
+    ["chutera", "botin", "botines", "chuteras", "taquilla", "taquillas"],
     ["pegatina", "sticker", "adhesivo", "calcomania"],
     ["turbante", "gorro turbante"],
     ["peluche", "muñeco de peluche"],
