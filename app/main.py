@@ -18,7 +18,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from . import agente, kommo
+from . import agente, kommo, kommo_api
 from .config import cfg
 
 app = FastAPI(title="Cerebro de ventas — Shopping Asia")
@@ -175,6 +175,145 @@ async def webhook(request: Request, bg: BackgroundTasks):
         print("[WEBHOOK] NO respondo: falta return_url o mensaje.", flush=True)
 
     return {"status": "ok"}
+
+
+# ============================================================================
+# ARQUITECTURA v2 — webhook general de mensajes entrantes (sin widget_request)
+#
+# Kommo manda un webhook por CADA mensaje entrante (evento "Incoming message
+# received"). Nosotros: juntamos los mensajes seguidos del mismo lead unos
+# segundos (la gente escribe en tandas), pensamos UNA respuesta y la entregamos
+# via kommo_api (campo del lead + lanzar bot de 1 paso). Resultado: un solo
+# mensaje natural, sin limite de 80, en TODOS los mensajes de la charla.
+# ============================================================================
+
+import asyncio as _asyncio
+import os as _os
+import time as _time
+
+_ESPERA_AGRUPAR = float(_os.getenv("ESPERA_AGRUPAR_SEG", "6"))
+_WEBHOOK_CLAVE = (_os.getenv("WEBHOOK_CLAVE", "") or "").strip()
+
+_charlas = {}   # lead_id -> {"textos": [...], "contact_id": str, "tarea": Task}
+_vistos = {}    # message_id -> timestamp (dedupe de reintentos del webhook)
+
+
+@app.on_event("startup")
+async def _arranque():
+    # Crea/encuentra el campo "Respuesta bot" para poder elegirlo en el bot.
+    await kommo_api.asegurar_campo()
+
+
+def _extraer_mensajes(body: dict) -> list:
+    """Del form-urlencoded aplanado (add[0][text], ...) o del JSON, saca la
+    lista de mensajes entrantes."""
+    msgs = []
+    # JSON: {"add": [ {...} ]} o {"message": {"add": [...]}}
+    add = body.get("add")
+    if add is None and isinstance(body.get("message"), dict):
+        add = body["message"].get("add")
+    if isinstance(add, list):
+        for m in add:
+            if isinstance(m, dict):
+                msgs.append(m)
+        return msgs
+    # Form aplanado: add[0][text], message[add][0][text], etc.
+    for pref in ("add", "message[add]"):
+        i = 0
+        while f"{pref}[{i}][id]" in body or f"{pref}[{i}][text]" in body:
+            g = lambda k, _i=i, _p=pref: body.get(f"{_p}[{_i}][{k}]", "")
+            msgs.append({
+                "id": g("id"), "text": g("text"), "type": g("type"),
+                "entity_id": g("entity_id") or g("element_id"),
+                "entity_type": g("entity_type"),
+                "contact_id": g("contact_id"), "talk_id": g("talk_id"),
+                "origin": g("origin"),
+                "author": {"type": body.get(f"{pref}[{i}][author][type]", "")},
+            })
+            i += 1
+        if msgs:
+            break
+    return msgs
+
+
+async def _responder_charla(lead_id: str):
+    """Espera unos segundos por si vienen mas mensajes seguidos y responde UNA vez."""
+    try:
+        await _asyncio.sleep(_ESPERA_AGRUPAR)
+    except _asyncio.CancelledError:
+        return  # llego otro mensaje: la tarea nueva se encarga
+    ch = _charlas.pop(lead_id, None)
+    if not ch or not ch["textos"]:
+        return
+    texto = "\n".join(ch["textos"])
+    nombre = await kommo_api.nombre_contacto(ch.get("contact_id"))
+    print(f"[CHAT] lead={lead_id} nombre={nombre!r} msgs={len(ch['textos'])} "
+          f"texto={texto[:120]!r}", flush=True)
+    try:
+        res = await agente.procesar(texto, nombre=nombre)
+        await kommo_api.entregar(lead_id, res["texto"])
+    except Exception as e:
+        print(f"[CHAT] ERROR procesando lead={lead_id}: {e}", flush=True)
+
+
+@app.post("/webhook-mensajes")
+async def webhook_mensajes(request: Request):
+    """Webhook general de Kommo: evento 'Incoming message received'."""
+    import json as _json
+    from urllib.parse import parse_qs
+
+    if _WEBHOOK_CLAVE and request.query_params.get("clave", "") != _WEBHOOK_CLAVE:
+        return JSONResponse({"error": "clave"}, status_code=403)
+
+    raw = await request.body()
+    body = {}
+    if raw:
+        try:
+            body = _json.loads(raw)
+        except Exception:
+            try:
+                q = parse_qs(raw.decode("utf-8", "replace"))
+                body = {k: (v[0] if v else "") for k, v in q.items()}
+            except Exception:
+                body = {}
+    if not isinstance(body, dict):
+        body = {}
+
+    ahora = _time.time()
+    # dedupe: limpiar ids viejos (>10 min)
+    for k in [k for k, t in _vistos.items() if ahora - t > 600]:
+        _vistos.pop(k, None)
+
+    n = 0
+    for m in _extraer_mensajes(body):
+        if (m.get("type") or "").lower() not in ("", "incoming"):
+            continue
+        if (m.get("author") or {}).get("type") == "internal":
+            continue  # lo escribio un usuario de Kommo o un bot, no el cliente
+        mid = str(m.get("id") or "")
+        if mid and mid in _vistos:
+            continue
+        if mid:
+            _vistos[mid] = ahora
+        lead_id = str(m.get("entity_id") or "")
+        texto = (m.get("text") or "").strip()
+        if not lead_id or not texto:
+            continue
+        ch = _charlas.setdefault(lead_id, {"textos": [], "contact_id": "", "tarea": None})
+        ch["textos"].append(texto)
+        ch["contact_id"] = str(m.get("contact_id") or ch["contact_id"])
+        if ch["tarea"] and not ch["tarea"].done():
+            ch["tarea"].cancel()  # reinicia la espera: el cliente sigue escribiendo
+        ch["tarea"] = _asyncio.create_task(_responder_charla(lead_id))
+        n += 1
+    print(f"[MENSAJES] webhook: {n} mensaje(s) encolado(s). keys={list(body.keys())[:8]}", flush=True)
+    return {"status": "ok"}
+
+
+@app.get("/diag-kommo")
+async def diag_kommo():
+    """Diagnostico de la arquitectura v2: token, cuenta, campo y bot."""
+    return await kommo_api.diagnostico()
 
 
 @app.get("/diag")

@@ -2,13 +2,53 @@
 
 _Copia local del estado del proyecto. Para retomar con cualquier modelo/sesión, pasale este archivo o pedile que lo lea._
 
-## 0. RESUMEN
-El agente FUNCIONA en lo esencial: responde dentro de Kommo con IA, entrega el
-mensaje al cliente, usa el catálogo completo (49.536 productos) y manda fotos.
-Queda UN bloqueo (ver 0.1): sólo contesta el PRIMER mensaje de cada conversación.
-Todo lo demás (entrega, auth, catálogo, fotos, audios) ya está resuelto.
+## 0. RESUMEN — CAMBIO DE ARQUITECTURA (2026-08-27)
+DECISIÓN: se abandona el canal widget_request/salesbot-show como vía de entrega.
+Motivo: ese canal fue diseñado para guiones cortos de bot, no para conversar:
+- handler "show" limita a 80 caracteres -> mensajes picados en globitos (feo).
+- el Salesbot corre UNA vez por conversación -> no contesta mensajes siguientes.
+Ambos problemas son de diseño de ese canal; forzarlo (bucle goto) resultó frágil
+y en la última prueba dejó de responder del todo.
 
-## 0.1 BLOQUEO ACTUAL — que conteste TODOS los mensajes de una charla
+ARQUITECTURA v2 (la que usan las integraciones de IA serias en Kommo):
+1. Webhook GENERAL de la cuenta, evento "Incoming message received":
+   Kommo avisa a nuestro server por CADA mensaje entrante (todos, siempre).
+   Endpoint: https://cerebro-kommo.onrender.com/webhook-mensajes
+2. El cerebro agrupa mensajes seguidos (~6 s), piensa UNA respuesta (mismo
+   agente de siempre: catálogo, fotos, reglas — nada de eso cambió).
+3. Entrega: PATCH del lead -> campo "Respuesta bot" (se crea solo al arrancar
+   el server) + POST /api/v4/bots/{id}/run -> un Salesbot MÍNIMO de 1 paso
+   ("Enviar mensaje" = {{lead.Respuesta bot}}) manda el texto al cliente.
+   -> UN solo mensaje, largo y natural, sin límite de 80, en TODOS los mensajes.
+Código nuevo: app/kommo_api.py + endpoint /webhook-mensajes en app/main.py.
+Diagnóstico: https://cerebro-kommo.onrender.com/diag-kommo
+El endpoint viejo /webhook (widget) queda como respaldo pero ya no se usa.
+
+## 0.1 PASOS ÚNICOS EN EL PANEL DE KOMMO (pendiente de ejecutar)
+Con sesión de admin en Kommo:
+1. TOKEN: Ajustes -> Integraciones -> nuestra integración privada -> token de
+   larga duración. En Render: KOMMO_API_TOKEN (si ya es el mismo KOMMO_TOKEN,
+   no hace falta duplicarlo; /diag-kommo dice si la cuenta responde 200).
+2. DEPLOY primero (actualizar_github.bat) y abrir /diag-kommo: debe mostrar
+   cuenta_http: 200 y campo_id (el server crea solo el campo "Respuesta bot").
+3. BOT NUEVO: CRM -> Salesbot -> crear bot SIN disparador, con UN solo paso
+   "Enviar mensaje" cuyo texto sea el campo del lead "Respuesta bot" (insertar
+   placeholder de campo desde el editor). Guardar. El número del bot está en la
+   URL del constructor -> en Render: KOMMO_BOT_ID.
+4. WEBHOOK: Ajustes -> Integraciones -> botón "Web hooks" -> agregar URL
+   https://cerebro-kommo.onrender.com/webhook-mensajes con el evento
+   "Mensaje entrante recibido" (Incoming message received). Guardar.
+   (Opcional: agregar ?clave=XXXX a la URL y poner WEBHOOK_CLAVE=XXXX en Render.)
+5. APAGAR el bot viejo del widget (sacarle el disparador o desactivarlo) para
+   que no choque con el nuevo ("no se puede continuar un bot si otro bot ya
+   está corriendo en la misma entidad").
+6. En Render: KOMMO_GOTO_FINISH=0 (el goto ya no se usa).
+Prueba: charla nueva por WhatsApp, mandar 2-3 mensajes -> debe contestar a todos,
+en un solo mensaje cada vez, completo (sin globitos de 80).
+
+## 0.2 (HISTÓRICO) Bloqueo del canal viejo — ya no aplica, se deja de referencia
+
+(Tema: que conteste TODOS los mensajes de una charla, por la vía vieja.)
 Síntoma: responde a conversaciones NUEVAS (primer mensaje), pero en una charla que
 ya venía mensajeando NO responde — ni aparece [WEBHOOK] en el log. Confirmado en vivo.
 Causa: Kommo corre el Salesbot UNA sola vez por conversación; no lo vuelve a disparar
@@ -109,7 +149,7 @@ La respuesta al return_url sólo acepta ciertos handlers (probado en vivo):
 - Respuesta al return_url: {data:{message}, execute_handlers:[{show <=80}...]} + Bearer.
 
 ## 8. Pendientes
-1. BLOQUEO: que conteste TODOS los mensajes de una charla (ver 0.1). Es lo único que falta.
+1. EJECUTAR los pasos del panel de Kommo de la sección 0.1 (arquitectura v2).
 2. Cargar los 4 vendedores reales (env VENDEDORES).
 3. Pautas -> producto (ver 6).
 4. "Parar al derivar" (cortar el bucle al derivar). Foto real (no link) = canal amojo.
