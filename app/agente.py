@@ -24,10 +24,12 @@ from . import busqueda, conocimiento, kommo, llm, productos, reglas, vendedores
 _URL_RE = _re.compile(r"https?://[^\s)\]]+")
 
 # Prefijos de links LEGÍTIMOS (todo lo demás se considera inventado y se borra)
+# OJO: /buscador NO está acá a propósito: solo se permite el link de búsqueda
+# EXACTO que calcula el servidor (va como 'permitidos_extra'), porque la IA
+# tendía a armar buscadores con la frase entera del cliente.
 _LINKS_BASE = (
     "https://www.shoppingasia.com.py/storage/",   # fotos originales del catálogo
     "https://cerebro-kommo.onrender.com/foto/",   # fotos optimizadas (miniatura)
-    "https://www.shoppingasia.com.py/buscador",   # resultados de búsqueda
     "https://catalogo.shoppingasia.com.py",       # catálogo de pautas
     "https://wa.me/",                             # derivación a vendedor
 )
@@ -245,19 +247,25 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     # (michila -> mochila) y descarta palabras que no existen en ningún producto.
     _idx = productos.indice_actual()
     term_web = _idx.termino_web(mensaje) if _idx else busqueda.termino_web(mensaje)
+    link_web = ""
     if term_web and not sku:
         from urllib.parse import quote as _q
-        contexto += ("Link 'ver más' (resultados de esta búsqueda en la web): "
-                     f"https://www.shoppingasia.com.py/buscador?q={_q(term_web)}\n")
+        link_web = f"https://www.shoppingasia.com.py/buscador?q={_q(term_web)}"
+        contexto += ("Link 'ver más' (único link de búsqueda permitido; va TAL "
+                     f"CUAL, no lo modifiques ni armes otro): {link_web}\n")
 
     # 3) IA para redactar (tono humano). Si no hay IA o falla, respuesta templada.
     if llm.disponible():
         texto = await asyncio.to_thread(llm.responder, SISTEMA, contexto, mensaje)
         if texto:
-            # Links legítimos de ESTA respuesta: las fotos de los candidatos.
-            fotos = tuple(it["imagenes"][0] for it in sugeridos if it.get("imagenes"))
+            # Links legítimos de ESTA respuesta: fotos de los candidatos y el
+            # link de búsqueda EXACTO calculado por el servidor (ningún otro).
+            permitidos = tuple(productos.foto_url(it) for it in sugeridos
+                               if it.get("imagenes"))
+            if link_web:
+                permitidos += (link_web,)
             derivar = "[DERIVAR]" in texto
-            texto = _limpiar_salida(texto.replace("[DERIVAR]", ""), fotos)
+            texto = _limpiar_salida(texto.replace("[DERIVAR]", ""), permitidos)
             if derivar:
                 d = vendedores.mensaje_derivacion(
                     sku=(sku or ""), consulta=mensaje[:180], lead_id=lead_id)
