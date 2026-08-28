@@ -372,7 +372,9 @@ async def webhook_mensajes(request: Request):
         texto = (m.get("text") or "").strip()
         # Foto/adjunto sin texto: NO ignorar (el hilo moria en silencio).
         tipo_msg = str(m.get("message_type") or "")
-        if not texto and (ad_id or tipo_msg in ("picture", "file", "video")):
+        if not texto and tipo_msg in ("voice", "audio", "ptt"):
+            texto = "(el cliente mandó un audio)"
+        elif not texto and (ad_id or tipo_msg in ("picture", "file", "video")):
             texto = "(el cliente mandó una foto)" if tipo_msg else "Hola"
         if not lead_id or not texto:
             continue

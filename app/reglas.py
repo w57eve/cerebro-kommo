@@ -121,6 +121,7 @@ REGLAS = [
 # También QUEJAS/RECLAMOS: eso siempre lo atiende una persona, nunca el bot.
 DERIVAR = ["hablar con", "un vendedor", "una persona", "un asesor", "asesor",
            "atencion humana", "hablar con alguien", "vendedor", "vendedora",
+           "derivame", "derivar", "pasame con", "que me atienda", "personalizada",
            "queja", "reclamo", "reclamar", "estafa", "no llego", "no me llego",
            "nunca llego", "defectuoso", "fallado", "mal estado", "vino roto",
            "llego roto", "denuncia", "denunciar", "me cobraron",

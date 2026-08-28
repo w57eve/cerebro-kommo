@@ -92,9 +92,10 @@ async def _web_tiene_resultados(term: str) -> bool:
 
 
 AUDIO_MSG = (
-    "¡Hola! 🎧 Me llegó tu audio, pero por acá todavía no puedo "
-    "escucharlos. ¿Me lo escribís en un mensajito así te ayudo enseguida? "
-    "Si preferís, te paso con un asesor 🙌"
+    "¡Hola! 🎧 Me llegó tu audio, pero por acá no puedo escucharlos. "
+    "¿Me lo escribís en un mensajito, por favor? Así te atiendo mejor. "
+    "O si preferís, te derivo con un vendedor para una atención más "
+    "personalizada 🙌"
 )
 
 FALLBACK = (
@@ -221,7 +222,8 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     contestamos/mostramos los productos. No devolvemos solo un saludo.
     """
     # Nota de voz: no podemos escucharla todavia -> pedimos texto / derivamos.
-    if reglas.es_audio(mensaje):
+    # (v2: llega como "(el cliente mandó un audio)"; legado: ícono 🔊 en texto)
+    if "(el cliente mandó un audio)" in mensaje or reglas.es_audio(mensaje):
         return {"texto": AUDIO_MSG, "derivar": False, "candidatos": None}
 
     saludo = reglas.es_saludo(mensaje)
