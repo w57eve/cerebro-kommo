@@ -81,6 +81,16 @@ buscar en este orden, sin frustrar al cliente:
 > Resumen para el agente: catálogo → web → vendedor. Nunca decir "no tenemos" sin
 > antes pasar por la web; y si no está cargado en ningún lado, derivar (no inventar).
 
+### 5.1a Marcas y líneas propias (para no confundirse)
+- **GRASEP** es un MODELO de la línea **IRUN** (calzados). Si el cliente pregunta
+  por GRASEP (o Graseep/Grassep), corresponde a los calzados IRUN: están en el
+  catálogo rápido (sección CALZADO IRUN) y en el catálogo general como
+  "CALZADO IRUN...". Nunca decir "no tenemos GRASEP": es parte de IRUN.
+- **Talles en el nombre:** los calzados del catálogo traen el RANGO de talles en
+  el nombre (ej. "CALZADO IRUN 36-41", "CALZADO IRUN 40-44"). Usalo: si piden
+  calce 41, los modelos "36-41" lo cubren y los "42-44" no. El stock puntual
+  del talle igual lo confirma el vendedor.
+
 ### 5.1b CALZADOS de PAUTAS — talles/calce (regla específica, muy frecuente)
 Los calzados que publicitamos en pautas tienen **horma chica**. Flujo obligatorio
 cuando el cliente pregunta por el **talle/calce** de un calzado (ej. "¿tienen 43?",

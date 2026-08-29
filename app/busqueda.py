@@ -81,6 +81,8 @@ _GRUPOS = [
     ["mochila", "mochilas"],
     ["pirex", "fuente", "asadera"],
     ["chutera", "botin", "botines", "chuteras", "taquilla", "taquillas"],
+    # GRASEP es un MODELO de la linea IRUN (asi figura en catalogo y pautas)
+    ["irun", "grasep", "graseep", "grassep", "gracep"],
     ["pegatina", "sticker", "adhesivo", "calcomania"],
     ["turbante", "gorro turbante"],
     ["peluche", "muñeco de peluche"],

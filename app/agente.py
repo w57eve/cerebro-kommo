@@ -453,7 +453,8 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                        "deportivo", "irun",
                        # typos frecuentes de celular (letras vecinas / s-c-z)
                        "fitsal", "futzal", "fusal", "chanpion", "champio",
-                       "sapatilla", "zapato", "sapato", "calsado", "calzada"}
+                       "sapatilla", "zapato", "sapato", "calsado", "calzada",
+                       "grasep", "graseep", "grassep", "gracep"}
     _msg_n = busqueda.normalizar(mensaje)
     _toks = set(busqueda.tokenizar(mensaje))
     pauta_term = ("calzado" if (_toks & _CALZADO_TOKENS
