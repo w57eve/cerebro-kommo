@@ -311,3 +311,14 @@ Nombres EXACTOS o se leen vacías.
 - aprendizaje.py ahora sube los intercambios en tandas (cada 10 mensajes o 10 min) a la rama "aprendizaje" del repo, archivo datos/aprendizaje/AAAA-MM-DD.jsonl. Rama separada: los push de código a main no chocan y Render no redespliega por datos. Tope 500 pendientes si GitHub falla; reintenta solo. /aprendizaje muestra bloque "github" (activo, pendientes, ultimo_envio, ultimo_error) para el monitoreo.
 - FALTA DEL DUEÑO: 1) crear token fine-grained en GitHub (solo repo cerebro-kommo, permiso Contents: Read and write), 2) en Render → Environment agregar GITHUB_TOKEN=<token>, 3) doble clic actualizar_github.bat.
 - Ciclo de aprendizaje: el monitoreo nocturno lee esos JSONL → consultas sin candidatos → sinónimos; fallbacks → reglas; respuestas del vendedor post-derivación → conocimiento. Cada mejora entra con test.
+
+## Monitoreo 29/08/2026 17:15
+- Suite 45/45 OK, sin regresiones. Aprendizaje→GitHub FUNCIONANDO: leí los 20 intercambios de hoy desde la rama "aprendizaje" (el token ya está activo en Render). /aprendizaje y /diag no accesibles desde el entorno de monitoreo (bloqueo de red del entorno, no implica caída del servicio).
+- Detectado, propuesto sin implementar: (1) teléfono del cliente "0981496337" interpretado como SKU (lead 24744833) — detectar patrón 09xxxxxxxx; (2) bot siguió el juego del "te amo" de una clienta (lead 22541380) en vez de cortar cordial a la segunda; (3) listas de productos llegan con líneas vacías donde iban los ítems (caso "el grasep", lead 24745469: "¿cuál te gustó?" sin lista visible) — revisar hueco que deja PRECIO-FIX/fotos: colapsar también líneas de solo-espacios; (4) mismo lead dijo "116.mil" (precio del IRUN 36-41) y el bot contestó que los GRASEP van 320-380 mil — verificar de qué candidatos salieron esos precios.
+- Sin ajustes de código esta corrida; ninguno de los 4 entra en los ajustes chicos permitidos.
+
+## Fix precios inventados (caso David/grasep) 29/08/2026
+- "116.mil" con punto no se reconocía como referencia a precio -> buscaba "116" (ofreció un altavoz). Regex de precio ahora tolera "116.mil"/"116,mil".
+- La IA dijo "rondan entre 320.000 y 380.000 gs" (IRUN real: 80-193 mil). Nuevo _verificar_precios_texto: todo precio en TEXTO LIBRE que no salga de una fuente legítima (candidatos/contexto/prompt/mensaje/historial) se borra con su oración. Marca [PRECIO-TXT] en el log.
+- Si el verificador borraba TODA la lista quedaba un hueco en blanco ("tengo varios modelos:" y nada). Ahora reconstruye la lista con los candidatos reales, sin repetidos.
+- Orden: anti-invención corre ANTES del control de texto libre (si no, se tapaban la señal). Suite 49/49. Falta: actualizar_github.bat.

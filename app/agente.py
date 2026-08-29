@@ -37,6 +37,48 @@ _LINKS_BASE = (
 )
 
 
+_PRECIO_SUELTO = _re.compile(
+    r"\b\d{1,3}(?:[.,]\d{3})+(?:\s*gs)?\b|\b\d{2,3}\s*[.,]?\s*mil\b",
+    _re.IGNORECASE)
+
+
+def _verificar_precios_texto(texto: str, fuentes) -> str:
+    """Precios mencionados en TEXTO LIBRE (no en líneas de lista) que no salen
+    de ninguna fuente legítima (candidatos, contexto, prompt, mensaje,
+    historial) -> se borra esa oración. La IA llegó a decir 'rondan entre
+    320.000 y 380.000 gs' para un calzado real de 116.000 (29/08 David)."""
+    def _digitos(tok: str) -> str:
+        d = _re.sub(r"\D", "", tok)
+        if "mil" in tok.lower() and len(d) <= 3:
+            d += "000"
+        return d
+
+    permitidos = set()
+    for f in fuentes:
+        f = str(f or "")
+        for m in _re.finditer(r"\d[\d.,]*", f):
+            permitidos.add(_re.sub(r"\D", "", m.group()))
+        for m in _PRECIO_SUELTO.finditer(f):   # "116 mil" del cliente -> 116000
+            permitidos.add(_digitos(m.group()))
+
+    out = []
+    for ln in texto.splitlines():
+        malos = [m.group() for m in _PRECIO_SUELTO.finditer(ln)
+                 if len(_digitos(m.group())) >= 5
+                 and _digitos(m.group()) not in permitidos]
+        if not malos:
+            out.append(ln)
+            continue
+        print(f"[PRECIO-TXT] precio(s) sin fuente borrados: {malos}",
+              flush=True)
+        oraciones = _re.split(r"(?<=[.!?…])\s+", ln)
+        quedan = [o for o in oraciones if not any(x in o for x in malos)]
+        if quedan:
+            out.append(" ".join(quedan))
+    res = _re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
+    return res if res else FALLBACK
+
+
 def _limpiar_salida(texto: str, permitidos_extra=()) -> str:
     """Borra meta-notas entre corchetes y CUALQUIER link que no sea legítimo
     (el bot viejo inventaba URLs de producto rotos: eso no puede volver a salir)."""
@@ -137,6 +179,7 @@ def _verificar_precios(texto: str, sugeridos) -> str:
         toks = set(busqueda.tokenizar(s.get("nombre", ""))) - busqueda.STOP
         cands.append((toks, s))
     out = []
+    _borradas = _conservadas = 0
     for ln in texto.splitlines():
         m = _re.search(r"^(\s*(?:[-•*]|\d+[.)])?\s*)(.{3,70}?)\s*[—–-]\s*"
                        r"([\d][\d.,]{2,})\s*gs\b", ln, _re.IGNORECASE)
@@ -159,16 +202,36 @@ def _verificar_precios(texto: str, sugeridos) -> str:
                 ok = True
                 break
         if ok:
+            _conservadas += 1
             out.append(ln)
         elif mejor is not None and mejor_sc >= 0.5:
+            _conservadas += 1
             out.append(f"{pref}*{mejor['nombre']}* — {productos.precio_texto(mejor)}")
             print(f"[PRECIO-FIX] {nombre_l[:30]!r} {precio_l} -> "
                   f"{mejor['nombre'][:30]!r} {productos.precio_texto(mejor)}",
                   flush=True)
         else:
+            _borradas += 1
             print(f"[PRECIO-FIX] línea sin candidato real, borrada: "
                   f"{ln[:60]!r}", flush=True)
-    return "\n".join(out).replace("**", "*")
+    # Si se borró TODA la lista, el mensaje quedaba con un hueco en blanco
+    # ("tengo varios modelos:" y nada — 29/08 David/grasep). En ese caso se
+    # reconstruye la lista con los candidatos REALES (sin repetir).
+    if _borradas and not _conservadas and cands:
+        vistos, reales = set(), []
+        for _toks, s in cands:
+            clave = (s.get("nombre"), productos.precio_texto(s))
+            if clave in vistos:
+                continue
+            vistos.add(clave)
+            reales.append(f"*{s['nombre']}* — {productos.precio_texto(s)}")
+        if reales:
+            out.append("")
+            out.extend(reales[:4])
+            print(f"[PRECIO-FIX] lista reconstruida con {len(reales[:4])} "
+                  "candidatos reales", flush=True)
+    texto_ok = "\n".join(out).replace("**", "*")
+    return _re.sub(r"\n{3,}", "\n\n", texto_ok)
 
 
 AUDIO_MSG = (
@@ -436,7 +499,7 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     _ref_lista = None
     _m_ref = _re.fullmatch(
         r"\s*(?:el|la|ese|esa|quiero el|quiero la)?\s*(?:de)?\s*"
-        r"(\d{2,3})(?:\s*mil)?\s*(?:gs)?\s*[.!?]*\s*",
+        r"(\d{2,3})(?:\s*[.,]?\s*mil)?\s*(?:gs)?\s*[.!?]*\s*",
         busqueda.normalizar(mensaje))
     if _m_ref and historial:
         _num = _m_ref.group(1)
@@ -461,8 +524,8 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     # que ya vio (en la charla, en el catálogo chico o en una foto), NO un
     # producto para buscar. Sin esto, "116" matcheaba cualquier cosa (llegó a
     # ofrecer estuches de celular a alguien que miraba botines).
-    if _re.search(r"\b\d{2,3}(?:[.,]\d{3})?\s*(?:mil|gs|guaranies|guaraníes)\b",
-                  mensaje.lower()):
+    if _re.search(r"\b\d{2,3}(?:[.,]\d{3})?\s*[.,]?\s*"
+                  r"(?:mil|gs|guaranies|guaraníes)\b", mensaje.lower()):
         contexto += (
             "OJO: el cliente menciona un PRECIO como referencia ('el de X "
             "mil'). NO es un producto para buscar: se refiere a algo que ya "
@@ -777,7 +840,8 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             # ANTI-INVENCIÓN: si NO hubo candidatos reales ni foto, y la
             # respuesta trae una lista de productos con precios, es fabricada
             # (pasó: fajas y boxers con precios que no existen). Se reemplaza
-            # por la repregunta segura.
+            # por la repregunta segura. (Va ANTES del control de precios en
+            # texto libre: ese puede achicar la lista y taparía esta señal.)
             if not sugeridos and not foto_matches:
                 _lineas_prod = [
                     ln for ln in texto.splitlines()
@@ -788,6 +852,10 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                           "sin candidatos: se reemplaza por fallback", flush=True)
                     texto = FALLBACK
                     derivar = False
+            _fuentes_precio = [SISTEMA, contexto, mensaje] + [
+                (h.get("cliente", "") or "") + " " + (h.get("agente", "") or "")
+                for h in (historial or [])]
+            texto = _verificar_precios_texto(texto, _fuentes_precio)
             if derivar:
                 d = vendedores.mensaje_derivacion(
                     sku=(sku or ""), consulta=mensaje[:180], lead_id=lead_id)

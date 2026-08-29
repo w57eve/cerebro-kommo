@@ -131,6 +131,12 @@ async def correr():
     h164 = [{"cliente": "championes?", "agente": "Opciones:\n*CALZADO IRUN 40-44* — 164.000 gs"}]
     await agente.procesar("el de 164", historial=h164)
     check("'el de 164' referencia a la lista (29/08)", "coincide con un PRECIO" in CTX["ctx"])
+    # "116.mil" CON PUNTO: es referencia a precio, no búsqueda (29/08 David:
+    # buscó "116" y terminó ofreciendo un altavoz y precios inventados)
+    h116 = [{"cliente": "el grasep", "agente": "Tenemos:\n*CALZADO IRUN 36-41* — 116.000 gs"}]
+    await agente.procesar("116.mil", historial=h116)
+    check("'116.mil' con punto es precio, no busqueda (29/08 David)",
+          "coincide con un PRECIO" in CTX["ctx"] or "PRECIO como referencia" in CTX["ctx"])
     r = await agente.procesar("Por favor", historial=[
         {"cliente": "x", "agente": "¿te paso con un vendedor?"}], lead_id="t3")
     check("acepta derivacion -> deriva (28/08 Alberto)", r["derivar"])
@@ -169,6 +175,30 @@ async def correr():
     check("precio cruzado corregido", "116.000" in out and "444.000" not in out)
     out = _verificar_precios("*PRODUCTO FANTASMA X* — 999.000 gs", sug)
     check("producto fantasma borrado", "FANTASMA" not in out)
+    # Si borra TODA la lista, reconstruye con los candidatos reales y no
+    # deja el hueco en blanco (29/08 David: "tengo varios modelos:" y nada)
+    out = _verificar_precios(
+        "Encontré varios modelos:\n*GRASEP CLASICO* — 350.000 gs\n"
+        "*GRASEP PREMIUM* — 380.000 gs\n¿Cuál te gustó?",
+        [{"sku": "1", "nombre": "CALZADO IRUN 36-41", "precio": 116000},
+         {"sku": "2", "nombre": "CALZADO IRUN 36-41", "precio": 116000},
+         {"sku": "3", "nombre": "CALZADO IRUN 38-43", "precio": 122000}])
+    check("lista borrada se reconstruye con candidatos reales (29/08 David)",
+          "116.000" in out and "122.000" in out and "GRASEP" not in out
+          and out.count("116.000") == 1 and "\n\n\n" not in out)
+    # Precio INVENTADO en texto libre (no en lista) se borra (29/08 David:
+    # "rondan entre 320.000 y 380.000 gs" para un calzado de 116.000)
+    from app.agente import _verificar_precios_texto
+    fuentes = ["catalogo: *CALZADO IRUN 36-41* — 116.000 gs", "116.mil"]
+    out = _verificar_precios_texto(
+        "Los GRASEP rondan entre *320.000 y 380.000 gs* según modelo. "
+        "¿Te referís al de 116 mil? Ese está disponible.", fuentes)
+    check("precio inventado en texto libre borrado (29/08 David)",
+          "320.000" not in out and "380.000" not in out
+          and "116 mil" in out and "disponible" in out)
+    out = _verificar_precios_texto("Sale *116.000 gs* y hay stock.", fuentes)
+    check("precio legitimo en texto libre se conserva (29/08)",
+          "116.000" in out)
 
     # ── ANTI-INVENCIÓN (29/08 fajas a quien miraba botines) ──
     _llm_capturador("Opciones:\n*FAJA INVENTADA* — 49.000 gs\n*BOXER INVENTADO* — 20.000 gs")
