@@ -84,7 +84,8 @@ def _limpiar_salida(texto: str, permitidos_extra=()) -> str:
 _web_cache = {}   # termino -> (ts, tiene_resultados)
 
 
-async def _web_tiene_resultados(term: str) -> bool:
+async def _web_conteo(term: str) -> int:
+    """Cantidad de productos que devuelve el buscador de la web para term."""
     import time as _t
 
     import httpx as _httpx
@@ -92,20 +93,24 @@ async def _web_tiene_resultados(term: str) -> bool:
     v = _web_cache.get(term)
     if v and _t.time() - v[0] < 6 * 3600:
         return v[1]
-    ok = False
+    n = 0
     try:
         async with _httpx.AsyncClient(timeout=7) as cli:
             r = await cli.get(
                 f"https://www.shoppingasia.com.py/buscador?q={_q(term)}",
                 headers={"User-Agent": "cerebro"})
-        ok = r.status_code == 200 and ("/producto/" in r.text
-                                       or "storage/sku" in r.text)
+        if r.status_code == 200:
+            n = r.text.count("/producto/")
     except Exception:
-        ok = False   # ante la duda, mejor sin link que con un link vacío
+        n = 0   # ante la duda, mejor sin link que con un link vacío
     if len(_web_cache) > 500:
         _web_cache.clear()
-    _web_cache[term] = (_t.time(), ok)
-    return ok
+    _web_cache[term] = (_t.time(), n)
+    return n
+
+
+async def _web_tiene_resultados(term: str) -> bool:
+    return (await _web_conteo(term)) > 0
 
 
 def _verificar_precios(texto: str, sugeridos) -> str:
@@ -404,6 +409,31 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             "no queda claro a qué se refiere, UNA repregunta o derivá. "
             "PROHIBIDO ofrecer productos sueltos del catálogo acá.\n")
 
+    # "El de 164": referencia a un PRECIO de la lista que el bot mandó antes.
+    _ref_lista = None
+    _m_ref = _re.fullmatch(
+        r"\s*(?:el|la|ese|esa|quiero el|quiero la)?\s*(?:de)?\s*"
+        r"(\d{2,3})(?:\s*mil)?\s*(?:gs)?\s*[.!?]*\s*",
+        busqueda.normalizar(mensaje))
+    if _m_ref and historial:
+        _num = _m_ref.group(1)
+        for _h in reversed(list(historial)):
+            _ag = _h.get("agente") or ""
+            for _ln in _ag.splitlines():
+                if _re.search(r"\b" + _num + r"[.,]?[0-9]{0,3}\s*(?:gs|mil)"
+                              r"|\b" + _num + r"[.,]000", _ln):
+                    _ref_lista = _ln.strip()
+                    break
+            if _ref_lista:
+                break
+    if _ref_lista:
+        contexto += (
+            f"El cliente dice un NÚMERO que coincide con un PRECIO de tu "
+            f"lista anterior. Se refiere a: \"{_ref_lista[:120]}\". "
+            "CONFIRMÁ con naturalidad (ej. '¿Te referís al ... de X gs?') y "
+            "continuá la venta con ESE producto. NO busques el número como "
+            "producto ni cambies de tema.\n")
+
     # "El de 116 mil", "el de 45.000 gs": es una REFERENCIA A PRECIO de algo
     # que ya vio (en la charla, en el catálogo chico o en una foto), NO un
     # producto para buscar. Sin esto, "116" matcheaba cualquier cosa (llegó a
@@ -641,14 +671,18 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     link_web = ""
     if eligio:
         term_web = ""   # ya eligió: nada de links de "ver más"
-    # FALLBACK del buscador web: si la frase completa no tiene resultados
-    # ("guante arquero"), probar con el SUSTANTIVO solo ("guante") — muchos
-    # productos no están cargados con el nombre completo.
-    if term_web and not sku and " " in term_web \
-            and not await _web_tiene_resultados(term_web):
+    # MEJOR término para el link: se prueban las DOS formas (frase completa y
+    # sustantivo solo) y gana la que trae resultados más útiles en la web —
+    # muchos productos no están cargados con el nombre completo.
+    if term_web and not sku and " " in term_web:
+        _n_frase = await _web_conteo(term_web)
         _cabeza = term_web.split()[0]
-        if await _web_tiene_resultados(_cabeza):
-            term_web = _cabeza
+        _n_cabeza = await _web_conteo(_cabeza)
+        # la frase completa gana si trae resultados decentes (más específica);
+        # si trae poco o nada y el sustantivo trae más, gana el sustantivo.
+        if _n_frase == 0 or (_n_frase < 3 and _n_cabeza > _n_frase):
+            if _n_cabeza > 0:
+                term_web = _cabeza
     if term_web and not sku and await _web_tiene_resultados(term_web):
         from urllib.parse import quote as _q
         link_web = f"https://www.shoppingasia.com.py/buscador?q={_q(term_web)}"
