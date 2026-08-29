@@ -161,13 +161,24 @@ for _w in ("champion", "champione", "zapatilla", "teni"):
     _WEB_CANON[_w] = "calzado"
 
 
+def _pares(texto):
+    """[(palabra_original, token_singular)] del texto normalizado."""
+    tnorm = normalizar(texto)
+    tnorm = re.sub(r"([a-z])(\d)", r"\1 \2", tnorm)
+    tnorm = re.sub(r"(\d)([a-z])", r"\1 \2", tnorm)
+    crudos = re.findall(r"[a-z0-9]+", tnorm)
+    return [(w, singular(w)) for w in crudos if len(w) >= 2]
+
+
 def termino_web(texto: str) -> str:
     """Término limpio para el buscador de la web: sin saludos/ruido, con la
-    jerga mapeada a lo que la web entiende (championes -> calzado)."""
-    toks = [w for w in tokenizar(texto) if w not in STOP and not w.isdigit()]
+    jerga mapeada (championes -> calzado). Emite PALABRAS REALES (la original
+    del cliente), no tokens singularizados truncados ('guantes' -> 'guant')."""
     vistos, out = set(), []
-    for w in toks:
-        c = _WEB_CANON.get(w, w)
+    for w0, w in _pares(texto):
+        if w in STOP or w0 in STOP or w.isdigit():
+            continue
+        c = _WEB_CANON.get(w, w0)
         if c not in vistos:
             vistos.add(c)
             out.append(c)
@@ -254,22 +265,27 @@ class Indice:
 
     def termino_web(self, texto: str) -> str:
         """Como termino_web() del módulo, pero VERIFICADO contra el catálogo:
-        corrige tipeos con el vocabulario real (michila -> mochila) y descarta
-        palabras que no existen en ningún producto. Así el link del buscador
-        nunca lleva basura."""
-        toks = [w for w in tokenizar(texto) if w not in STOP and not w.isdigit()]
+        corrige tipeos (michila -> mochila) y descarta palabras que no existen
+        en ningún producto. Emite PALABRAS REALES (la original del cliente o
+        la corrección completa), nunca tokens truncados ('guant')."""
         out, vistos = [], set()
-        for w in toks:
-            c = _WEB_CANON.get(w, w)
-            if c not in self.df:
+        for w0, w in _pares(texto):
+            if w in STOP or w0 in STOP or w.isdigit():
+                continue
+            canon = _WEB_CANON.get(w)
+            if canon:
+                emitir = canon                     # jerga -> canónico real
+            elif w in self.df:
+                emitir = w0                        # palabra del cliente, real
+            else:
                 reales = [f for f in self._expandir(w) if f in self.df]
                 if not reales:
                     continue          # no existe en el catálogo: fuera del link
                 reales.sort(key=lambda f: -self.df[f])
-                c = _WEB_CANON.get(reales[0], reales[0])
-            if c not in vistos:
-                vistos.add(c)
-                out.append(c)
+                emitir = _WEB_CANON.get(reales[0], reales[0])
+            if emitir not in vistos:
+                vistos.add(emitir)
+                out.append(emitir)
         return " ".join(out[:4])
 
     def buscar(self, consulta, limite=4):

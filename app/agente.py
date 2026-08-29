@@ -561,6 +561,14 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     link_web = ""
     if eligio:
         term_web = ""   # ya eligió: nada de links de "ver más"
+    # FALLBACK del buscador web: si la frase completa no tiene resultados
+    # ("guante arquero"), probar con el SUSTANTIVO solo ("guante") — muchos
+    # productos no están cargados con el nombre completo.
+    if term_web and not sku and " " in term_web \
+            and not await _web_tiene_resultados(term_web):
+        _cabeza = term_web.split()[0]
+        if await _web_tiene_resultados(_cabeza):
+            term_web = _cabeza
     if term_web and not sku and await _web_tiene_resultados(term_web):
         from urllib.parse import quote as _q
         link_web = f"https://www.shoppingasia.com.py/buscador?q={_q(term_web)}"
