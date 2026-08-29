@@ -64,11 +64,14 @@ REGLAS = [
         "horario te puedo ayudar igual por acá.",
     ),
     (
-        ["donde estan", "direccion", "ubicacion", "ubicados", "como llego",
-         "retiro", "retirar", "sucursal", "local"],
+        ["donde estan", "donde queda", "donde es", "direccion", "ubicacion",
+         "ubicados", "como llego", "como llegar", "localizacion", "mapa",
+         "maps", "retiro", "retirar", "sucursal", "local"],
         "Estamos en Av. Eusebio Ayala 1451, frente a la comisaría séptima, "
-        "Asunción. Podés pagar y pasar a retirar, o te lo enviamos. ¿Querés "
-        "que te ayude con algún producto?",
+        "Asunción. Acá tenés la ubicación en el mapa 📍\n"
+        "https://www.google.com/maps/place/Shopping+Asia/data=!4m2!3m1!1s0x0:0x8209184b8f599d4a\n"
+        "Podés pagar y pasar a retirar, o te lo enviamos. ¿Querés que te "
+        "ayude con algún producto?",
     ),
     (
         ["medios de pago", "como pago", "formas de pago", "pagar", "tarjeta",

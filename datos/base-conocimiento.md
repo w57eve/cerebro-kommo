@@ -140,6 +140,8 @@ para decidir. Lógica por nivel de confianza:
 - **P:** ¿Qué medios de pago aceptan? → **R: transferencias, QR, tarjetas y efectivo** .
 - **P:** ¿Dónde están / puedo retirar? → **R:** Av. Eusebio Ayala 1451 frente mismo a la comisaria septima, Asunción;
   horario 9 a 22 todos los días. (Retiro: podes pagar y ya te preparamos, para pasar a retirar.)
+  Ubicación en el mapa (link verificado, se puede mandar tal cual):
+  https://www.google.com/maps/place/Shopping+Asia/data=!4m2!3m1!1s0x0:0x8209184b8f599d4a
 - **P:** ¿Están abiertos hoy / feriados / domingos? → **R:** Sí, todos los días de
   9 a 22 hs.
 - **P:** ¿Tienen precio mayorista? → **R:** Sí, hacemos descuentos por escala según

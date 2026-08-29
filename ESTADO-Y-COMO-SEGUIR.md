@@ -358,3 +358,8 @@ Nombres EXACTOS o se leen vacías.
 - Misael: "el todos terrenos" (plural) no matcheaba la jerga → ahora todos?/terrenos? con regex, mismo flujo calzados.
 - POLÍTICA NUEVA (pedido del dueño): con VARIOS candidatos NO se pega la lista en texto — una línea con la familia + link "ver más" VERIFICADO (sonda) para que el cliente VEA con fotos. Solo sin link: 2-3 nombres máx. Prompt + contexto actualizados.
 - Suite 67/67. Falta: actualizar_github.bat.
+
+## Ubicación con Google Maps 29/08/2026
+- Link del local verificado en vivo (abre "Shopping Asia", Av. Eusebio Ayala 1451): https://www.google.com/maps/place/Shopping+Asia/data=!4m2!3m1!1s0x0:0x8209184b8f599d4a
+- Agregado a: regla 0-tokens de ubicación (con keywords nuevas: donde queda, como llegar, mapa...), links permitidos en _limpiar_salida, y base-conocimiento.md (copia del repo y la maestra). 5 tests. Suite 72/72.
+- Falta: actualizar_github.bat.

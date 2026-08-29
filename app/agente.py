@@ -34,7 +34,14 @@ _URL_RE = _re.compile(r"https?://[^\s)\]]+")
 _LINKS_BASE = (
     "https://catalogo.shoppingasia.com.py",       # catálogo de pautas
     "https://wa.me/",                             # derivación a vendedor
+    "https://www.google.com/maps",                # ubicación del local
+    "https://maps.google.com", "https://maps.app.goo.gl",
 )
+
+# Link del local en Google Maps (verificado 29/08: abre "Shopping Asia",
+# Av. Eusebio Ayala 1451). Se manda cuando piden ubicación / cómo llegar.
+LINK_MAPS = ("https://www.google.com/maps/place/Shopping+Asia/"
+             "data=!4m2!3m1!1s0x0:0x8209184b8f599d4a")
 
 
 _PRECIO_SUELTO = _re.compile(

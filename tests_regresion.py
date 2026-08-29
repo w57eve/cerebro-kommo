@@ -251,6 +251,18 @@ async def correr():
           "PRECIO como referencia" in CTX["ctx"]
           or "coincide con un PRECIO" in CTX["ctx"])
 
+    # ── UBICACIÓN CON LINK DE MAPS (29/08) ──
+    for _q in ["donde queda el local?", "me pasas la ubicacion?",
+               "como llego?", "direccion porfa"]:
+        r = reglas.responder(_q)
+        check(f"ubicacion con maps (29/08): {_q!r}",
+              r and "google.com/maps" in r["texto"]
+              and "Eusebio Ayala" in r["texto"])
+    # el link de maps sobrevive la limpieza de links
+    out = _limpiar_salida(
+        "Estamos acá:\nhttps://www.google.com/maps/place/Shopping+Asia/data=!4m2!3m1!1s0x0:0x8209184b8f599d4a", ())
+    check("link de maps permitido en salida (29/08)", "google.com/maps" in out)
+
     # ── SALUDO CON TYPO NO ES PRODUCTO (29/08 Brenda) ──
     # "Qué tall?" matcheaba productos TALLA y tapaba a las maletas
     c = await productos.buscar(
