@@ -68,6 +68,10 @@ async def correr():
         return 0
     agente._web_conteo = web_off
 
+    async def web_res_off(term):
+        return 0, ()
+    agente._web_resultados = web_res_off
+
     # ── BÚSQUEDA / JERGA (incidentes 28-29/08) ──
     idx = productos.indice_actual()
     check("chutera->botin (28/08 Julio)", any("BOTIN" in r["nombre"].upper() or "BOT" in r["nombre"].upper() for r in idx.buscar("chutera", 4)) or True)
@@ -249,6 +253,27 @@ async def correr():
     c = await productos.buscar("valija con ruedas", limite=3)
     check("valija -> maleta (29/08)",
           bool(c) and "MALETA" in c[0]["nombre"].upper())
+
+    # ── SONDA WEB singular/plural: el link lleva a la forma CORRECTA ──
+    # ('maleta' en la web trae 16 maletas; 'maletas' un candado — 29/08)
+    productos._instalar([{"sku": "77x", "nombre": "Maleta Grande de Viaje",
+                          "precio": 387000, "imagenes": []}])
+    async def _web_res_fake(term):
+        return {"maleta": (16, ("77x", "88y")),
+                "maletas": (2, ("999",))}.get(term, (0, ()))
+    async def _web_cont_fake(term):
+        return (await _web_res_fake(term))[0]
+    agente._web_resultados = _web_res_fake
+    agente._web_conteo = _web_cont_fake
+    _llm_capturador()
+    await agente.procesar("tienen maletas?")
+    check("sonda web elige forma con el SKU del candidato (29/08)",
+          "buscador?q=maleta\n" in CTX["ctx"].replace("q=maleta ", "q=maleta\n")
+          or ("buscador?q=maleta" in CTX["ctx"]
+              and "buscador?q=maletas" not in CTX["ctx"]))
+    agente._web_resultados = web_res_off
+    agente._web_conteo = web_off
+    preparar()
 
     # ── "TODO TERRENO" = jerga del anuncio IRUN, no búsqueda literal ──
     # (29/08 Sonia: le listó zapatillas de otra familia y un AUTITO)

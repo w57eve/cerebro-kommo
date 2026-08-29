@@ -129,20 +129,17 @@ def _limpiar_salida(texto: str, permitidos_extra=()) -> str:
 _web_cache = {}   # termino -> (ts, tiene_resultados)
 
 
-async def _web_conteo(term: str) -> int:
-    """Cantidad de productos que devuelve el buscador de la web para term."""
+async def _web_resultados(term: str):
+    """(total, SKUs de la 1ra página) que devuelve el buscador de la web.
+    OJO (29/08/2026): la web renderiza con JS; el HTML crudo de /buscador ya
+    no sirve. Se usa la API JSON del propio front: /get-productos."""
     import time as _t
 
     import httpx as _httpx
-    from urllib.parse import quote as _q
     v = _web_cache.get(term)
     if v and _t.time() - v[0] < 6 * 3600:
-        return v[1]
-    n = 0
-    # OJO (29/08/2026): la web pasó a renderizar los resultados con JS, así
-    # que el HTML crudo de /buscador ya NO trae "/producto/" (siempre daba 0
-    # y el bot nunca mandaba el link). Se usa la API JSON que usa el propio
-    # front: /get-productos?query_string=... -> paginacion.total.
+        return v[1], v[2]
+    n, skus = 0, ()
     try:
         async with _httpx.AsyncClient(timeout=7) as cli:
             r = await cli.get(
@@ -151,14 +148,25 @@ async def _web_conteo(term: str) -> int:
                 headers={"User-Agent": "cerebro", "Accept": "application/json"})
         if r.status_code == 200:
             try:
-                n = int((r.json().get("paginacion") or {}).get("total") or 0)
+                pag = r.json().get("paginacion") or {}
+                n = int(pag.get("total") or 0)
+                skus = tuple(
+                    str(x.get("codigo_articulo")
+                        or x.get("codigo_referencial") or "")
+                    for x in (pag.get("data") or [])[:20])
             except Exception:
                 n = r.text.count("/producto/")   # por si vuelven al HTML
     except Exception:
-        n = 0   # ante la duda, mejor sin link que con un link vacío
+        n, skus = 0, ()   # ante la duda, mejor sin link que con link vacío
     if len(_web_cache) > 500:
         _web_cache.clear()
-    _web_cache[term] = (_t.time(), n)
+    _web_cache[term] = (_t.time(), n, skus)
+    return n, skus
+
+
+async def _web_conteo(term: str) -> int:
+    """Cantidad de productos que devuelve el buscador de la web para term."""
+    n, _ = await _web_resultados(term)
     return n
 
 
@@ -861,6 +869,30 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
         if _n_frase == 0 or (_n_frase < 3 and _n_cabeza > _n_frase):
             if _n_cabeza > 0:
                 term_web = _cabeza
+    # SONDA SINGULAR/PLURAL: el buscador de la web es LITERAL ('maleta' trae
+    # 16 maletas; 'maletas' trae un candado y una balanza — 29/08). Se prueban
+    # las variantes de la última palabra y gana la que CONTIENE el SKU de un
+    # candidato nuestro; si ninguna, la de más resultados.
+    if term_web and not sku:
+        _parts = term_web.split()
+        _sing = busqueda.singular(_parts[-1])
+        _vars = []
+        for _f in (_parts[-1], _sing, _sing + "s"):
+            _v = " ".join(_parts[:-1] + [_f])
+            if _v not in _vars:
+                _vars.append(_v)
+        if len(_vars) > 1:
+            _skus_sug = {str(s.get("sku")) for s in sugeridos if s.get("sku")}
+            _mejor, _mejor_sc = term_web, (-1, -1)
+            for _v in _vars[:3]:
+                _n, _skus = await _web_resultados(_v)
+                _sc = (1 if _skus_sug & set(_skus) else 0, _n)
+                if _sc > _mejor_sc:
+                    _mejor, _mejor_sc = _v, _sc
+            if _mejor_sc[1] > 0 and _mejor != term_web:
+                print(f"[SONDA-WEB] {term_web!r} -> {_mejor!r} "
+                      f"(con_sku={_mejor_sc[0]}, n={_mejor_sc[1]})", flush=True)
+                term_web = _mejor
     if term_web and not sku and await _web_tiene_resultados(term_web):
         from urllib.parse import quote as _q
         link_web = f"https://www.shoppingasia.com.py/buscador?q={_q(term_web)}"

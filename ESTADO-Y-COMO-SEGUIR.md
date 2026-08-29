@@ -347,3 +347,8 @@ Nombres EXACTOS o se leen vacías.
 ## Fix caso Brenda 29/08/2026 (noche)
 - "Buenass! Qué tall? Disponen de maletas para viaje con ruedas 360?" → "tall" (typo de "qué tal") matcheaba productos TALLA (chanclas, cubre motos) y tapaba a la "Maleta Grande de Viaje con Ruedas 360°" que SÍ existe. Agregados a STOP de búsqueda: tall/quetal/buenass/disponen/etc. + sinónimos valija/equipaje → maleta. 2 tests. Suite 62/62.
 - Falta: actualizar_github.bat (acumula también los fixes de contexto de la corrida anterior).
+
+## Sonda web singular/plural 29/08/2026 (noche)
+- Confirmado con la API de la web: el buscador de la página es LITERAL — "maleta" trae 16 maletas, "maletas" trae un candado y una balanza; "mochila" 34, "mochilas" 3 juguetes. Los nombres están cargados en singular.
+- Nueva SONDA en agente.py: antes de armar el link "ver más", prueba las variantes (tal cual / singular / +s) contra /get-productos y elige la que CONTIENE el SKU del candidato que estamos recomendando (o la de más resultados). _web_resultados devuelve total+SKUs de la 1ra página, cacheado 6h. Marca [SONDA-WEB] en el log.
+- Suite 63/63. Falta: actualizar_github.bat.
