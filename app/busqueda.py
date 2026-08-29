@@ -39,6 +39,10 @@ STOP = {
     "necesito", "queria", "querria", "me", "gustaria", "tenian", "vende",
     "venden", "consulta", "consultar", "precio", "cuanto", "sale", "vale",
     "como", "estan", "tal", "ver", "algun", "alguna",
+    # typos frecuentes de saludo: "que tall?" matcheaba productos TALLA
+    # (a Brenda le taparon las maletas unas chanclas por talla — 29/08)
+    "tall", "talll", "quetal", "qtal", "buenass", "holaa", "holaaa",
+    "disponen", "dispone", "disponible", "disponibles",
 }
 
 # ── Nombres que indican ACCESORIO (no el producto en sí). Si el nombre empieza
@@ -79,6 +83,7 @@ _GRUPOS = [
     ["labial", "lapiz labial", "lipstick"],
     ["cargador", "cargadores"],
     ["mochila", "mochilas"],
+    ["maleta", "maletas", "valija", "valijas", "equipaje"],
     ["pirex", "fuente", "asadera"],
     ["chutera", "botin", "botines", "chuteras", "taquilla", "taquillas"],
     # GRASEP es un MODELO de la linea IRUN (asi figura en catalogo y pautas)

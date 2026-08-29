@@ -238,6 +238,18 @@ async def correr():
           "PRECIO como referencia" in CTX["ctx"]
           or "coincide con un PRECIO" in CTX["ctx"])
 
+    # ── SALUDO CON TYPO NO ES PRODUCTO (29/08 Brenda) ──
+    # "Qué tall?" matcheaba productos TALLA y tapaba a las maletas
+    c = await productos.buscar(
+        "Buenass! Qué tall? Disponen de maletas para viaje con ruedas 360?",
+        limite=3)
+    check("'que tall?' no tapa a las maletas (29/08 Brenda)",
+          bool(c) and all("MALETA" in x["nombre"].upper() for x in c[:1])
+          and not any("TALLA" in x["nombre"].upper() for x in c))
+    c = await productos.buscar("valija con ruedas", limite=3)
+    check("valija -> maleta (29/08)",
+          bool(c) and "MALETA" in c[0]["nombre"].upper())
+
     # ── "TODO TERRENO" = jerga del anuncio IRUN, no búsqueda literal ──
     # (29/08 Sonia: le listó zapatillas de otra familia y un AUTITO)
     productos._instalar([

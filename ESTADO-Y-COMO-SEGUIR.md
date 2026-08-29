@@ -343,3 +343,7 @@ Nombres EXACTOS o se leen vacías.
   3) "Que llegó recién" → matcheó LEGO. Nuevo _pide_novedades: no busca literal; ofrece lo nuevo del rubro hablado o deriva.
   4) "170000" pegado sin puntos ahora cuenta como referencia a precio.
 - 7 tests nuevos con los casos reales. Suite 60/60. GitHub aprendizaje OK (56 regs, sin errores). Falta: actualizar_github.bat.
+
+## Fix caso Brenda 29/08/2026 (noche)
+- "Buenass! Qué tall? Disponen de maletas para viaje con ruedas 360?" → "tall" (typo de "qué tal") matcheaba productos TALLA (chanclas, cubre motos) y tapaba a la "Maleta Grande de Viaje con Ruedas 360°" que SÍ existe. Agregados a STOP de búsqueda: tall/quetal/buenass/disponen/etc. + sinónimos valija/equipaje → maleta. 2 tests. Suite 62/62.
+- Falta: actualizar_github.bat (acumula también los fixes de contexto de la corrida anterior).
