@@ -61,11 +61,17 @@ def _limpiar_salida(texto: str, permitidos_extra=()) -> str:
             return True   # la portada sí existe
         return any(u.startswith(p) for p in permitidos)
 
-    lineas = []
+    lineas, fotos_vistas = [], 0
     for ln in texto.splitlines():
         urls = _URL_RE.findall(ln)
         if urls and not all(_ok(u) for u in urls):
             continue
+        # tope: UNA sola linea con link de foto (la gente no toca los links;
+        # los candidatos van como texto y las fotos solo al confirmar)
+        if any("/foto/" in u or "/storage/" in u for u in urls):
+            fotos_vistas += 1
+            if fotos_vistas > 1:
+                continue
         lineas.append(ln)
     limpio = "\n".join(lineas)
     limpio = _re.sub(r"\n{3,}", "\n\n", limpio).strip()
@@ -133,11 +139,11 @@ Cómo trabajás (MUY IMPORTANTE):
   OFRECER, no interrogar. En el contexto te paso lo que encontré.
 - **Preguntá lo MÍNIMO.** A lo sumo UNA cosa (ej. talle o color) y solo si de
   verdad hace falta para avanzar. Nada de tandas de preguntas.
-- Cuando tengas el producto (o candidatos), mostralo con su **precio** y pasá el
-  **link de la foto** que te doy en el contexto. Mostrar la foto adentro del chat
-  es lo más práctico; la mayoría de los clientes no quieren salir a la web.
-- Si hay un solo candidato claro: presentalo confirmando ("¿es este? [foto]").
-  Si hay varios: mostrá 3–4 opciones con foto y que elija. La búsqueda no es
+- Cuando tengas el producto (o candidatos), mostralo con su **precio** en
+  texto claro. Nada de listas de links.
+- Si hay un solo candidato claro: presentalo confirmando ("¿es este? *nombre*
+  — precio") y ahí sí podés sumar SU foto (una sola). Si hay varios: mostrá
+  3–4 opciones como TEXTO (*nombre* — precio) y que elija. La búsqueda no es
   perfecta: si no estás seguro, ofrecé opciones o pedí el SKU, nunca inventes.
 - **El enlace a la web es la excepción**, no la regla: usalo solo si el cliente
   ya vio tus opciones y quiere VER MÁS variedad, o está solo curioseando. En ese
@@ -148,10 +154,17 @@ Cómo trabajás (MUY IMPORTANTE):
   breve y terminá el mensaje con la etiqueta [DERIVAR] en una línea aparte. El
   sistema la reemplaza por el contacto del vendedor de turno. No inventes vos
   números ni nombres de vendedores.
-- **FOTOS: mandá SIEMPRE el link PELADO** (ej. https://www.shoppingasia.com.py/...jpg),
-  tal cual, en su propia línea. NUNCA uses markdown ni corchetes: nada de
-  ![texto](url) ni [texto](url). WhatsApp NO renderiza markdown (se ve roto); en
-  cambio, un link pelado lo previsualiza solo. Un link por línea.
+- **POCOS LINKS (los clientes casi no los tocan).** Presentá los candidatos
+  como TEXTO: *nombre* — precio, sin link de foto por cada uno. Links
+  permitidos por mensaje: el catálogo rápido (si aplica) y el "ver más"
+  verificado del contexto — nada más. UNA foto como máximo, y solo cuando
+  estés confirmando UN producto puntual ("¿es este?") o el cliente pida ver
+  foto: en ese caso el link de foto va pelado en su propia línea (nunca
+  markdown ![](url); WhatsApp lo muestra roto).
+- **TYPOS DE CELULAR:** la gente escribe desde el teléfono y le pifia a las
+  letras vecinas ("michila" = mochila, "cinto" puede ser "cinta", c por s,
+  m por n). Interpretá la intención sin corregirlos en voz alta ni burlarte;
+  los candidatos del contexto ya vienen de la búsqueda con typos corregidos.
 
 Reglas duras (no las rompas nunca):
 - No inventás precios, stock ni políticas. Si no está en el catálogo ni en los

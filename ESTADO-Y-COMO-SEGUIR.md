@@ -180,6 +180,24 @@ FOTO REAL (pendiente en curso):
 - Pautas: identificación exacta pendiente de que el usuario ponga el producto
   en el mensaje prellenado de cada anuncio de Meta (Kommo no pasa el ad id).
 
+## 0.5 CIERRE 2026-08-28 noche — EN PRODUCCIÓN (deploy 317c40d, 18:53)
+Todo el paquete del día quedó vivo. Claves de la última hora:
+- Los deploys fallaban desde las 16:58: requirements con numpy/onnxruntime no
+  compatibles con el Python default de Render. Solución: quedaron COMENTADOS en
+  requirements.txt (el match visual por foto se apaga solo, sin romper nada) y
+  .python-version=3.11.9 en el repo para cuando se reactiven.
+- Otro bloqueo: .git/index.lock huérfano impedía que actualizar_github.bat
+  commitee (fallaba en silencio). Si Render "no reacciona" tras el bat, revisar
+  ese archivo y borrarlo.
+- ELECCIÓN CONCRETADA es determinística: SKU de "Hacer pedido" o calce/talle
+  con número => el server FUERZA la derivación (la IA solo redacta).
+- VISIÓN funcionando en producción (describe fotos reales de clientes).
+- PENDIENTE DECIDIDO PARA MÁS ADELANTE: migrar WhatsApp a API Cloud de Meta
+  PROPIA (Meta Business + developers con el número, conectada a Kommo) para
+  mandar FOTOS INCRUSTADAS de verdad. Hasta entonces, la foto viaja como link
+  con miniatura instantánea (/foto/<sku>.jpg). También pendiente: reactivar el
+  match visual (descomentar numpy/onnxruntime y verificar build).
+
 ## 1. Dónde está TODO
 - Código del cerebro (GitHub): repo w57eve/cerebro-kommo. Copia local en
   C:\Users\Admin\Documents\aplicacion\automatizacion-kommo\cerebro-kommo
