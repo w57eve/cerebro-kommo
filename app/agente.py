@@ -414,6 +414,29 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             "candidato del contexto. NO vuelvas a derivar ([DERIVAR] "
             "prohibido acá): solo recordá el mismo contacto si hace falta.\n")
 
+    # RESPUESTA DE ATRIBUTO: el cliente contesta solo con color/talle/material
+    # ("azul", "el negro", "numero 40", "40 rojo"). Es una especificación del
+    # MISMO producto del hilo: buscar esa palabra suelta trae cualquier cosa
+    # de ese color. Se busca sobre el hilo completo.
+    _COLORES = {"negro", "negra", "blanco", "blanca", "rojo", "roja", "azul",
+                "verde", "amarillo", "amarilla", "rosa", "rosado", "rosada",
+                "gris", "marron", "celeste", "violeta", "lila", "naranja",
+                "dorado", "dorada", "plateado", "plateada", "beige", "crema",
+                "fucsia", "bordo", "turquesa"}
+    _toks_attr = [w for w in busqueda.tokenizar(mensaje)
+                  if w not in busqueda.STOP]
+    _atributo = bool(historial and _toks_attr and all(
+        w.isdigit() or w in _COLORES or busqueda.singular(w) in _COLORES
+        for w in _toks_attr))
+    if _atributo:
+        contexto += (
+            "El cliente está ESPECIFICANDO un atributo (color/talle) del "
+            "MISMO producto del que venían hablando (mirá la conversación "
+            "previa). NO cambies de producto ni de rubro: respondé sobre ese "
+            "producto en ese color/talle. Si el atributo pedido no aparece en "
+            "los candidatos, decí que el vendedor confirma colores y talles "
+            "disponibles.\n")
+
     # "Me gustaría ver / mostrame / quiero ver / a ver": ACEPTA lo que el bot
     # ofreció en su último mensaje. Sin esto, la consulta queda vacía y la IA
     # inventaba rubros enteros (llegó a ofrecer fajas a quien miraba botines).
@@ -442,7 +465,7 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
         pass   # señala la foto/lo anterior: la búsqueda de texto solo mete ruido
     else:
         _fuente = mensaje
-        if (_acepta_oferta or _ya_derivado) and historial:
+        if (_acepta_oferta or _ya_derivado or _atributo) and historial:
             # el HILO completo reciente: lo que pidió el cliente + lo ofrecido
             _fuente = " ".join(
                 [h.get("cliente", "") for h in list(historial)[-3:]]
@@ -527,6 +550,10 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                         _msg_n) and historial):
         eligio = True   # "42", "el 40", "41 o 39" respondiendo al talle
     if eligio:
+        if not sku:
+            sugeridos = [s for s in sugeridos
+                         if _re.search(r"[a-z]{4,}",
+                                       busqueda.normalizar(mensaje))] and sugeridos or []
         contexto += (
             "ELECCIÓN CONCRETADA: el cliente YA eligió (producto y/o calce). "
             "PROHIBIDO ofrecer el catálogo, más opciones o links: confirmá su "
