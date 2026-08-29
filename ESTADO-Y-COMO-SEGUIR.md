@@ -281,3 +281,12 @@ ANTHROPIC_API_KEY, KOMMO_TOKEN (Bearer al return_url), KOMMO_SECRET_KEY (valida 
 vacío = no valida), KOMMO_SUBDOMAIN, KOMMO_MODO=show, CATALOGO_JSON_URL (default ok),
 y para el bucle: KOMMO_GOTO_FINISH=1, KOMMO_GOTO_TIPO=question, KOMMO_GOTO_STEP=0.
 Nombres EXACTOS o se leen vacías.
+
+## Monitoreo 2026-08-29 (corrida automática)
+- Suite de regresión: ✅ completa sin regresiones (todos los tests ok).
+- No se pudo acceder a /aprendizaje ni /diag (fetch y navegador bloqueados en esta corrida) → sin revisión de intercambios reales ni estado del catálogo. Verificar manualmente https://cerebro-kommo.onrender.com/diag.
+- Sin ajustes de código en esta corrida.
+
+## Monitoreo 29/08/2026 (tarde)
+- FIX regresión ofertas: pregunta GENERAL por ofertas ("tienen ofertas?", "que ofertas hay", "¿Pueden enviarme más información sobre la oferta?") ahora confirma y pregunta qué artículo vio, en vez de tirar el buscador. Con artículo nombrado ("ofertas de calzado") sigue al buscador. Regla nueva en reglas.py (_es_oferta_general) + 2 tests. Suite completa OK. Falta: actualizar_github.bat.
+- Miniaturas de Meta: revisados 20 webhooks crudos en /ultimos-webhooks → Kommo NO reenvía el objeto "referral" de Meta (miniatura/headline/ad id) en el webhook de mensaje entrante; solo llega text + attachment cuando el CLIENTE manda foto. Por eso el bot no puede ver la miniatura. Pistas: probar campos del lead vía API (utm_content/anuncio) o personalizar el mensaje prellenado por pauta en Meta para que nombre el producto (engancha con mapa-anuncios.md).

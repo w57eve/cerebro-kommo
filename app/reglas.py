@@ -140,6 +140,45 @@ DERIVAR = ["hablar con", "un vendedor", "una persona", "un asesor", "asesor",
            "desastre", "inutil", "pesimo", "que malo", "no sirve", "no sirven"]
 
 
+# ── Ofertas "a ciegas" ──
+# Cliente que pregunta por ofertas EN GENERAL ("tienen ofertas?", "que ofertas
+# hay", "ofertas") viene de una publicación de Meta: NO se le tira el resultado
+# del buscador con la palabra "ofertas"; se confirma y se le pregunta qué
+# artículo vio. Si nombra un rubro/producto ("ofertas de calzado"), quedan
+# tokens que no son de este set y la consulta sigue su camino normal.
+_OFERTA_PALABRAS = {"oferta", "ofertas", "promo", "promos", "promocion",
+                    "promociones"}
+_OFERTA_RELLENO = {
+    "hola", "holis", "buenas", "buenos", "buen", "dia", "dias", "tardes",
+    "noches", "que", "q", "cual", "cuales", "hay", "tienen", "tenes", "tiene",
+    "tienes", "alguna", "algunas", "algun", "la", "las", "el", "los", "un",
+    "una", "unos", "unas", "su", "sus", "de", "del", "me", "te", "pasa",
+    "pasas", "pasame", "mandame", "manda", "quiero", "queria", "quisiera",
+    "ver", "saber", "info", "informacion", "sobre", "por", "favor", "porfa",
+    "vi", "esa", "ese", "esta", "este", "aun", "todavia", "siguen", "sigue",
+    "vigente", "vigentes", "estan", "disponible", "disponibles", "hoy",
+    "ahora", "como", "y", "o", "dime", "decime", "son", "en", "tal", "amigo",
+    "amiga", "senor", "senora", "don", "dona",
+    # mensajes prellenados de las pautas de Meta ("¿Pueden enviarme más
+    # información sobre la oferta?", "Quiero más información de la oferta")
+    "pueden", "puede", "podrian", "podria", "podes", "enviarme", "envienme",
+    "mandarme", "brindarme", "darme", "mas", "detalles", "detalle", "precio",
+    "precios", "publicacion", "publicaron", "anuncio", "publicidad", "vieron",
+}
+_RESP_OFERTA_GENERAL = (
+    "¡Sí! Siguen las ofertas 🙌 ¿Qué artículo te interesa? Decime el producto "
+    "o mandame una captura de la publicación y te paso precio y "
+    "disponibilidad al toque."
+)
+
+
+def _es_oferta_general(m: str) -> bool:
+    toks = re.findall(r"[a-z0-9]+", m)
+    if not toks or not any(t in _OFERTA_PALABRAS for t in toks):
+        return False
+    return all(t in _OFERTA_PALABRAS or t in _OFERTA_RELLENO for t in toks)
+
+
 def responder(mensaje: str):
     """Devuelve un dict con la respuesta si alguna regla matchea, o None.
 
@@ -157,6 +196,11 @@ def responder(mensaje: str):
     for claves, resp in REGLAS:
         if any(k in m for k in claves):
             return {"tipo": "texto", "texto": resp}
+
+    # Pregunta general por ofertas sin nombrar artículo -> confirmar y
+    # preguntar qué vio (nunca mandar el buscador con "ofertas").
+    if _es_oferta_general(m):
+        return {"tipo": "texto", "texto": _RESP_OFERTA_GENERAL}
 
     return None
 

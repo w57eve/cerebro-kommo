@@ -85,6 +85,19 @@ async def correr():
     r = reglas.responder("siguen las ofertas?")
     check("ofertas confirma sin catalogo a ciegas (29/08)",
           r and "Siguen las ofertas" in r["texto"] and "catalogo" not in r["texto"].lower())
+    # Pregunta GENERAL por ofertas (viene de una publicación): confirmar y
+    # preguntar qué artículo vio, NUNCA tirar resultados del buscador.
+    ok_gen = all(
+        (x := reglas.responder(q)) and "oferta" in x["texto"].lower()
+        and "interesa" in x["texto"].lower()
+        for q in ["hola tienen ofertas?", "que ofertas tienen", "ofertas",
+                  "hay ofertas?", "tienen alguna oferta?",
+                  "¿Pueden enviarme más información sobre la oferta?"])
+    check("oferta general confirma y pregunta articulo (29/08)", ok_gen)
+    # Con artículo nombrado NO matchea la regla: sigue al buscador normal.
+    check("oferta con articulo va al buscador (29/08)",
+          reglas.responder("ofertas de calzado") is None
+          and reglas.responder("tienen ofertas en notebooks?") is None)
 
     # ── HILO DE CONVERSACIÓN ──
     _llm_capturador()
