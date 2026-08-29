@@ -398,6 +398,22 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                   if _cat else "")
         return productos.a_texto(it) + _extra
 
+    # YA DERIVADO: si en la charla previa ya se pasó el contacto del vendedor,
+    # los mensajes siguientes se responden SIN perder el hilo del producto.
+    _ya_derivado = bool(historial) and any(
+        "wa.me/" in (h.get("agente") or "") for h in historial)
+    if _ya_derivado:
+        contexto += (
+            "IMPORTANTE: en esta charla YA le pasaste el contacto del "
+            "vendedor. El tema de la conversación sigue siendo EL MISMO "
+            "producto del que venían hablando (mirá la conversación previa): "
+            "NUNCA cambies de producto ni de rubro. Si pregunta algo más, "
+            "respondé sobre ESE producto y recordale con naturalidad que el "
+            "vendedor le va a estar pasando los detalles (atiende de 9 a 19 "
+            "hs). Si insiste en VER el producto, mostrale la foto del "
+            "candidato del contexto. NO vuelvas a derivar ([DERIVAR] "
+            "prohibido acá): solo recordá el mismo contacto si hace falta.\n")
+
     # "Me gustaría ver / mostrame / quiero ver / a ver": ACEPTA lo que el bot
     # ofreció en su último mensaje. Sin esto, la consulta queda vacía y la IA
     # inventaba rubros enteros (llegó a ofrecer fajas a quien miraba botines).
@@ -426,8 +442,11 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
         pass   # señala la foto/lo anterior: la búsqueda de texto solo mete ruido
     else:
         _fuente = mensaje
-        if _acepta_oferta:
-            _fuente = (historial[-1].get("agente") or "") + " " + mensaje
+        if (_acepta_oferta or _ya_derivado) and historial:
+            # el HILO completo reciente: lo que pidió el cliente + lo ofrecido
+            _fuente = " ".join(
+                [h.get("cliente", "") for h in list(historial)[-3:]]
+                + [(historial[-1].get("agente") or "")[:200], mensaje])
         cand = await productos.buscar(_fuente, limite=5)
         sugeridos = cand
         if len(cand) == 1:
@@ -576,6 +595,10 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             # foto corresponda al nombre) y el link de búsqueda del servidor.
             permitidos = ()
             if len(sugeridos) == 1 and sugeridos[0].get("imagenes"):
+                permitidos = (productos.foto_url(sugeridos[0]),)
+            elif (_acepta_oferta or _ya_derivado) and sugeridos \
+                    and sugeridos[0].get("imagenes"):
+                # pidió VER: se permite la foto del candidato principal
                 permitidos = (productos.foto_url(sugeridos[0]),)
             if link_web:
                 permitidos += (link_web,)
