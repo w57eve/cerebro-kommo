@@ -28,9 +28,10 @@ _URL_RE = _re.compile(r"https?://[^\s)\]]+")
 # OJO: /buscador NO está acá a propósito: solo se permite el link de búsqueda
 # EXACTO que calcula el servidor (va como 'permitidos_extra'), porque la IA
 # tendía a armar buscadores con la frase entera del cliente.
+# OJO: las fotos NO están acá: solo se permite la foto EXACTA del candidato
+# que el server autoriza en cada respuesta (permitidos_extra). Sin esto, la IA
+# pegaba fotos de un producto junto al nombre de otro, o fotos inventadas.
 _LINKS_BASE = (
-    "https://www.shoppingasia.com.py/storage/",   # fotos originales del catálogo
-    "https://cerebro-kommo.onrender.com/foto/",   # fotos optimizadas (miniatura)
     "https://catalogo.shoppingasia.com.py",       # catálogo de pautas
     "https://wa.me/",                             # derivación a vendedor
 )
@@ -211,6 +212,23 @@ Reglas duras (no las rompas nunca):
 - Si el cliente quiere cerrar la compra o hablar con una persona, derivá al
   vendedor (el sistema te lo indica con un botón aparte).
 
+Cómo vende un VENDEDOR EXPERIMENTADO (tu estándar):
+- RELEVANCIA ante todo: si los candidatos del contexto NO se parecen a lo que
+  el cliente pidió (pidió zapatillas y hay cestos), NO los muestres — decí que
+  lo confirmás con el equipo y derivá. Mostrar cualquier cosa mata la venta.
+- STOCK: nunca digas "está disponible" ni "no hay stock" — vos no ves el stock.
+  Decí "lo tenemos en catálogo" y que el vendedor confirma disponibilidad.
+- COHERENCIA: no te contradigas entre mensajes ni cambies un precio ya dado.
+  Lo que dijiste antes (está en la conversación previa) sigue valiendo.
+- ANUNCIO MANDA: si la foto del cliente es un anuncio/captura con producto y
+  precio visibles, ESE es el tema y ESE es el precio — no ofrezcas otra cosa
+  más cara ni vuelvas a preguntar qué busca.
+- CIERRE: cada mensaje termina moviendo la venta UN paso (una pregunta
+  concreta, una confirmación o la derivación). Nunca cierres con tarea para el
+  cliente si podés resolverla vos.
+- Si ofreciste pasar con un vendedor y el cliente acepta ("sí", "dale", "por
+  favor"), NO vuelvas a preguntar: derivá en ese mismo mensaje.
+
 Datos de la empresa (horarios, pagos, envíos, etc.) están en la base de abajo.
 """
 
@@ -262,10 +280,24 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
 
     saludo = reglas.es_saludo(mensaje)
 
+    # ACEPTÓ la derivación ofrecida ("¿te paso con un vendedor?" -> "sí/dale/
+    # por favor"): derivar YA, directo y sin IA. Va ANTES que todo porque
+    # "por favor" caía en el filtro de saludos y repreguntaba.
+    _m0 = busqueda.normalizar(mensaje)
+    if (historial and _re.fullmatch(
+            r"\s*(si+|s[ií]\s*dale|dale|ok+a?|bueno|por\s*favor|porfa|claro"
+            r"|obvio|de una|hacele|hace(lo)?)[.!\s]*", _m0)
+            and any(w in (historial[-1].get("agente") or "").lower()
+                    for w in ("vendedor", "asesor", "te paso con", "te derivo"))):
+        d = vendedores.mensaje_derivacion(consulta="acepta derivación",
+                                          lead_id=lead_id)
+        return {"texto": "¡De una! " + d["texto"], "derivar": True,
+                "candidatos": None}
+
     # Solo un saludo (sin pedido) -> bienvenida y a esperar el pedido.
-    # PERO si viene de una PAUTA, no: ahí el agente abre directo con el
-    # producto/sección del anuncio (sigue al LLM con ese contexto).
-    if reglas.solo_saludo(mensaje) and not ad_id:
+    # PERO si viene de una PAUTA o la charla YA VENÍA, no: nada de volver a
+    # dar la bienvenida a mitad de conversación.
+    if reglas.solo_saludo(mensaje) and not ad_id and not historial:
         return {"texto": _bienvenida(nombre), "derivar": False, "candidatos": None}
 
     pref = _prefijo_saludo(saludo, nombre)
@@ -307,6 +339,20 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             "mencioná el catálogo rápido (catalogo.shoppingasia.com.py) si lo "
             "que busca es CALZADO — ropa, maquillaje y otros rubros NO están "
             "ahí.\n")
+
+    # "Esto", "este", "es esta", "ese quiero": el cliente SEÑALA algo (la foto
+    # o lo anterior), no nombra un producto. Buscar ese texto trae basura
+    # (le llegó a ofrecer cestos y perfumes a quien mandó una zapatilla).
+    _deixis = bool(_re.fullmatch(
+        r"\s*(es\s+)?(esto|este|esta|ese|esa|eso)( de ah[ií])?( quiero| busco"
+        r"| me interesa)?[.!\s]*", busqueda.normalizar(mensaje)))
+    if _deixis and (historial or "(foto del cliente:" in mensaje):
+        contexto += (
+            "OJO: el cliente está SEÑALANDO ('esto/ese') la foto que mandó o "
+            "lo último que se habló: NO es un producto para buscar. Respondé "
+            "sobre ESO (mirá la foto descripta y la conversación previa). Si "
+            "no queda claro a qué se refiere, UNA repregunta o derivá. "
+            "PROHIBIDO ofrecer productos sueltos del catálogo acá.\n")
 
     # "El de 116 mil", "el de 45.000 gs": es una REFERENCIA A PRECIO de algo
     # que ya vio (en la charla, en el catálogo chico o en una foto), NO un
@@ -359,6 +405,8 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
         else:
             contexto += (f"El SKU {sku} no está en el catálogo. No afirmes que "
                          "existe; ofrecé buscarlo o derivar.\n")
+    elif _deixis:
+        pass   # señala la foto/lo anterior: la búsqueda de texto solo mete ruido
     else:
         cand = await productos.buscar(mensaje, limite=5)
         sugeridos = cand
@@ -417,8 +465,18 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     # del catálogo chico), o dio su calce/talle con número, o respondió con el
     # número solo ("42") cuando la charla ya venía. En ese caso se DERIVA SÍ O
     # SÍ (la IA solo redacta la confirmación; la derivación la fuerza el server).
+    # Aceptó la derivación ofrecida ("¿te paso con un vendedor?" -> "sí/dale/
+    # por favor"): derivar YA, sin volver a preguntar (pasaba que repreguntaba).
+    _afirma = bool(_re.fullmatch(
+        r"\s*(si+|s[ií]\s*dale|dale|ok+a?|bueno|por\s*favor|porfa|claro"
+        r"|obvio|de una|hacele|hace(lo)?)[.!\s]*", _msg_n))
+    _ofrecio_vendedor = bool(historial) and any(
+        w in (historial[-1].get("agente") or "").lower()
+        for w in ("vendedor", "asesor", "te paso con", "te derivo"))
     eligio = False
-    if sku and ("hacer un pedido" in _msg_n
+    if _afirma and _ofrecio_vendedor:
+        eligio = True
+    elif sku and ("hacer un pedido" in _msg_n
                 or await catalogo_chico.categoria_de(sku)):
         eligio = True
     elif (_re.search(r"\b(calce|calse|clace|calze|kalce|talle|talla|taye"
@@ -492,10 +550,12 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     if llm.disponible():
         texto = await asyncio.to_thread(llm.responder, SISTEMA, contexto, mensaje)
         if texto:
-            # Links legítimos de ESTA respuesta: fotos de los candidatos y el
-            # link de búsqueda EXACTO calculado por el servidor (ningún otro).
-            permitidos = tuple(productos.foto_url(it) for it in sugeridos
-                               if it.get("imagenes"))
+            # Links legítimos de ESTA respuesta: la foto EXACTA del candidato
+            # (solo si hay UNO claro: con varios no se puede garantizar que la
+            # foto corresponda al nombre) y el link de búsqueda del servidor.
+            permitidos = ()
+            if len(sugeridos) == 1 and sugeridos[0].get("imagenes"):
+                permitidos = (productos.foto_url(sugeridos[0]),)
             if link_web:
                 permitidos += (link_web,)
             derivar = "[DERIVAR]" in texto or eligio
