@@ -94,9 +94,20 @@ def mensaje_derivacion(sku: str = "", consulta: str = "", lead_id: str = "") -> 
     link = enlace(numero, pre)
     rol = "vendedora especializada" if nombre.strip().lower().endswith("a") \
         else "vendedor especializado"
+    la = "La" if rol.startswith("vendedora") else "El"
+    # Hora de Paraguay (UTC-3): la atencion humana es de 9 a 19 hs.
+    from datetime import datetime, timedelta, timezone
+    hora_py = datetime.now(timezone(timedelta(hours=-3))).hour
+    if 9 <= hora_py < 19:
+        aviso = (f"{la} {rol.split()[0].lower()} te va a estar escribiendo "
+                 f"para pasarte los detalles. Si querés hablarle directo, "
+                 f"tocá este enlace 👇 (atiende de 9 a 19 hs)")
+    else:
+        aviso = (f"{la} {rol.split()[0].lower()} te escribe apenas arranque "
+                 f"su horario de atención (9 a 19 hs). Podés adelantarle tu "
+                 f"consulta tocando este enlace 👇")
     texto = (
         f"Te paso con {nombre}, {rol} de nuestro equipo 💬\n"
-        f"Tocá este enlace y te lleva directo a su WhatsApp para que te "
-        f"atienda 👇\n{link}"
+        f"{aviso}\n{link}"
     )
     return {"texto": texto, "vendedor": nombre}

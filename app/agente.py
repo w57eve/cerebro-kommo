@@ -213,6 +213,9 @@ Reglas duras (no las rompas nunca):
   vendedor (el sistema te lo indica con un botón aparte).
 
 Cómo vende un VENDEDOR EXPERIMENTADO (tu estándar):
+- SOLO EXISTE lo que está en el contexto: PROHIBIDO nombrar productos o
+  precios de memoria. Si el contexto no trae candidatos, NO listes nada:
+  repreguntá o derivá. Inventar un producto o precio es la falta más grave.
 - RELEVANCIA ante todo: si los candidatos del contexto NO se parecen a lo que
   el cliente pidió (pidió zapatillas y hay cestos), NO los muestres — decí que
   lo confirmás con el equipo y derivá. Mostrar cualquier cosa mata la venta.
@@ -395,6 +398,20 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                   if _cat else "")
         return productos.a_texto(it) + _extra
 
+    # "Me gustaría ver / mostrame / quiero ver / a ver": ACEPTA lo que el bot
+    # ofreció en su último mensaje. Sin esto, la consulta queda vacía y la IA
+    # inventaba rubros enteros (llegó a ofrecer fajas a quien miraba botines).
+    _acepta_oferta = bool(historial and _re.fullmatch(
+        r"\s*(me\s+gustaria\s+ver|quiero\s+ver|quisiera\s+ver|a\s+ver"
+        r"|mostrame|muestrame|mostra|ver\s+opciones|si\s+quiero\s+ver"
+        r"|dale\s+mostrame)[.!\s]*", busqueda.normalizar(mensaje)))
+    if _acepta_oferta:
+        contexto += (
+            "El cliente ACEPTA lo que ofreciste en tu último mensaje (está en "
+            "la conversación previa): cumplí EXACTAMENTE eso. PROHIBIDO "
+            "cambiar de rubro o producto. Los candidatos de abajo salen de tu "
+            "propia oferta anterior.\n")
+
     sugeridos = []
     sku = productos.extraer_sku(mensaje)
     if sku:
@@ -408,7 +425,10 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     elif _deixis:
         pass   # señala la foto/lo anterior: la búsqueda de texto solo mete ruido
     else:
-        cand = await productos.buscar(mensaje, limite=5)
+        _fuente = mensaje
+        if _acepta_oferta:
+            _fuente = (historial[-1].get("agente") or "") + " " + mensaje
+        cand = await productos.buscar(_fuente, limite=5)
         sugeridos = cand
         if len(cand) == 1:
             contexto += "Posible producto (confirmá con el cliente):\n" + await _linea(cand[0]) + "\n"
@@ -561,6 +581,20 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                 permitidos += (link_web,)
             derivar = "[DERIVAR]" in texto or eligio
             texto = _limpiar_salida(texto.replace("[DERIVAR]", ""), permitidos)
+            # ANTI-INVENCIÓN: si NO hubo candidatos reales ni foto, y la
+            # respuesta trae una lista de productos con precios, es fabricada
+            # (pasó: fajas y boxers con precios que no existen). Se reemplaza
+            # por la repregunta segura.
+            if not sugeridos and not foto_matches:
+                _lineas_prod = [
+                    ln for ln in texto.splitlines()
+                    if _re.search(r"\d{1,3}[.,]\d{3}\s*gs", ln.lower())
+                    and (_re.match(r"\s*[-•*\d]", ln) or "*" in ln)]
+                if len(_lineas_prod) >= 2:
+                    print("[ANTI-INVENCION] respuesta con lista de productos "
+                          "sin candidatos: se reemplaza por fallback", flush=True)
+                    texto = FALLBACK
+                    derivar = False
             if derivar:
                 d = vendedores.mensaje_derivacion(
                     sku=(sku or ""), consulta=mensaje[:180], lead_id=lead_id)
