@@ -110,6 +110,16 @@ async def correr():
     check("numero 40 sin derivar = eleccion->deriva (28/08)", r["derivar"])
     await agente.procesar("esto quiero", historial=H_CALZADO)
     check("deixis no busca basura (28/08 Rosa)", "SEÑALANDO" in CTX["ctx"])
+    # "Me pasan fotos de las opciones": pide fotos de lo YA mostrado; no
+    # buscar "fotos" como producto (le ofreció álbumes de fotos a Stanley).
+    h_org = [{"cliente": "Organizador para perfumes tienen?",
+              "agente": "Sí, tenemos:\n*ORGANIZADOR* — 38.000 gs\n*ORGANIZADOR* — 50.000 gs"}]
+    for _q in ["Me pasan fotos de las opciones", "mandame fotos",
+               "tenes fotos?", "quiero ver las fotos"]:
+        await agente.procesar(_q, historial=h_org)
+        check(f"pide fotos sigue el hilo (29/08 Stanley): {_q!r}",
+              "pide FOTOS de lo que YA le mostraste" in CTX["ctx"]
+              and "ALBUM" not in CTX["ctx"].upper())
     h164 = [{"cliente": "championes?", "agente": "Opciones:\n*CALZADO IRUN 40-44* — 164.000 gs"}]
     await agente.procesar("el de 164", historial=h164)
     check("'el de 164' referencia a la lista (29/08)", "coincide con un PRECIO" in CTX["ctx"])

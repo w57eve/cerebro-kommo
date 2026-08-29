@@ -295,3 +295,8 @@ Nombres EXACTOS o se leen vacías.
 - El anuncio (miniatura + texto + link fb.me) SÍ está pegado al mensaje entrante en el chat de Kommo (elemento feed-note__ads-post-preview, mismo message_id que el webhook), pero vive en amojo (backend de chats de Kommo).
 - Verificado que NO llega por ningún camino accesible al servidor: webhook (raw sin referral), campos rastreados del lead (los 12 vacíos), /api/v4/leads/{id}/notes (0 notas), /api/v4/talks/{id} (sin dato de pauta). El endpoint interno amojo /v1/chats/{chat}/messages requiere sesión web de Kommo (CORS/auth interno) — no usable por integración.
 - CONCLUSIÓN: no hay vía soportada. Solución recomendada: personalizar el mensaje prellenado de CADA pauta en Meta para que nombre el producto/rubro (ej: "Hola! Quiero info de los calzados en oferta"). Eso llega en el webhook como texto y el bot identifica solo.
+
+## Mejora hilo-fotos 29/08/2026
+- FIX: "Me pasan fotos de las opciones" (caso Stanley, lead 24740965) buscaba "fotos" como producto y ofrecía ÁLBUMES DE FOTOS. Ahora _pide_fotos en agente.py detecta el pedido, mantiene los productos del hilo y excluye "fotos" de la búsqueda. +4 tests. Suite completa OK. Falta: actualizar_github.bat.
+- Verificado en producción: fix de ofertas ya desplegado y funcionando (2 leads lo recibieron bien). Catálogo OK: 49.536 productos, fetch 200.
+- Detectado para futuro: catálogo con nombres genéricos repetidos ("ORGANIZADOR" x4, "ZAPATILLA", "CALZADOS") — el bot lista 4 veces el mismo nombre con precios distintos y el cliente no puede distinguir. Ver enriquecer nombres o instruir diferenciación por foto.

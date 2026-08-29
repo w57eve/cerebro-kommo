@@ -543,6 +543,27 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             "cambiar de rubro o producto. Los candidatos de abajo salen de tu "
             "propia oferta anterior.\n")
 
+    # "Me pasan fotos (de las opciones)", "mandame fotos", "tenés fotos?":
+    # pide FOTOS de lo que YA se le mostró. Sin esto, "fotos" se buscaba como
+    # producto (a Stanley, mirando organizadores, le ofreció ÁLBUMES DE FOTOS).
+    _pide_fotos = bool(historial and _re.fullmatch(
+        r"\s*(me\s+|nos\s+)?(pasa[sn]?|pasame|manda[sn]?|mandame|envia[sn]?"
+        r"|enviame|muestra[sn]?|mostrame|tene[ns]|tenes|tienen|hay|quiero"
+        r"(\s+ver)?|quisiera(\s+ver)?|puedo\s+ver|a\s+ver|ver)?\s*"
+        r"(la|las|una|unas|mas|los|sus)?\s*(foto|fotos|fotito|fotitos"
+        r"|imagen|imagenes)(\s+de\s+(la|las|los|esos?|esas?|estos?|estas?)?"
+        r"\s*(opciones|modelos|productos|articulos|esos?|esas?)?)?\s*"
+        r"(porfa|por\s+favor)?[?.!\s]*", busqueda.normalizar(mensaje)))
+    if _pide_fotos:
+        contexto += (
+            "El cliente pide FOTOS de lo que YA le mostraste en la "
+            "conversación previa: NO es un producto para buscar. Seguí con "
+            "LOS MISMOS productos de tu mensaje anterior. Como va UNA sola "
+            "foto por mensaje, mostrá la foto del principal (o del que él "
+            "mencionó) y preguntale de cuál otro quiere ver. PROHIBIDO "
+            "cambiar de rubro u ofrecer productos que matcheen con la "
+            "palabra 'foto'.\n")
+
     sugeridos = []
     sku = productos.extraer_sku(mensaje)
     if sku:
@@ -557,11 +578,13 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
         pass   # señala la foto/lo anterior: la búsqueda de texto solo mete ruido
     else:
         _fuente = mensaje
-        if (_acepta_oferta or _ya_derivado or _atributo) and historial:
+        if (_acepta_oferta or _ya_derivado or _atributo or _pide_fotos) and historial:
             # el HILO completo reciente: lo que pidió el cliente + lo ofrecido
+            # (si pide fotos, el mensaje actual NO entra: "fotos" mete ruido)
             _fuente = " ".join(
                 [h.get("cliente", "") for h in list(historial)[-3:]]
-                + [(historial[-1].get("agente") or "")[:200], mensaje])
+                + [(historial[-1].get("agente") or "")[:200]]
+                + ([] if _pide_fotos else [mensaje]))
         cand = await productos.buscar(_fuente, limite=5)
         sugeridos = cand
         if len(cand) == 1:
