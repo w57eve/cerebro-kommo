@@ -200,6 +200,42 @@ async def correr():
     check("precio legitimo en texto libre se conserva (29/08)",
           "116.000" in out)
 
+    # ── MODELOS DISTINTOS MISMO NOMBRE: una mención + link, sin repetir ──
+    _dups = [{"sku": str(i), "nombre": "CALZADO IRUN 38-43", "precio": 122000,
+              "imagenes": []} for i in range(3)]
+    productos._instalar(_dups + [{"sku": "9", "nombre": "GUANTE",
+                                  "precio": 20000, "imagenes": []}])
+    async def _web_3(term):
+        return 3
+    agente._web_conteo = _web_3
+    _llm_capturador()
+    await agente.procesar("calzado irun")
+    check("nombres duplicados: contexto sin repetidos + manda link (29/08)",
+          CTX["ctx"].count("CALZADO IRUN 38-43") == 1
+          and "MODELOS DISTINTOS" in CTX["ctx"]
+          and "buscador?q=" in CTX["ctx"])
+    agente._web_conteo = web_off
+    preparar()   # restaurar catálogo real para lo que siga
+
+    # ── "TODO TERRENO" = jerga del anuncio IRUN, no búsqueda literal ──
+    # (29/08 Sonia: le listó zapatillas de otra familia y un AUTITO)
+    productos._instalar([
+        {"sku": "1", "nombre": "Zapatillas Deportivas Todo Terreno para Hombre",
+         "precio": 444000, "imagenes": []},
+        {"sku": "2", "nombre": "Auto Acrobático con Ruedas Todo Terreno",
+         "precio": 22000, "imagenes": []},
+        {"sku": "3", "nombre": "CALZADO IRUN 36-41", "precio": 116000,
+         "imagenes": []}])
+    _llm_capturador()
+    r = await agente.procesar("Todo terreno para criatura")
+    check("'todo terreno' va por regla de calzados, sin literales (29/08 Sonia)",
+          "CONSULTA DE CALZADO" in CTX["ctx"]
+          and "Acrobático" not in CTX["ctx"]
+          and "Senderismo" not in CTX["ctx"]
+          and "catalogo.shoppingasia.com.py" in CTX["ctx"]
+          and "OTRO producto" in CTX["ctx"])
+    preparar()
+
     # ── ANTI-INVENCIÓN (29/08 fajas a quien miraba botines) ──
     _llm_capturador("Opciones:\n*FAJA INVENTADA* — 49.000 gs\n*BOXER INVENTADO* — 20.000 gs")
     r = await agente.procesar("zzqk inexistente xyw", historial=H_CALZADO)

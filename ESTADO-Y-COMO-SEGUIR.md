@@ -322,3 +322,12 @@ Nombres EXACTOS o se leen vacías.
 - La IA dijo "rondan entre 320.000 y 380.000 gs" (IRUN real: 80-193 mil). Nuevo _verificar_precios_texto: todo precio en TEXTO LIBRE que no salga de una fuente legítima (candidatos/contexto/prompt/mensaje/historial) se borra con su oración. Marca [PRECIO-TXT] en el log.
 - Si el verificador borraba TODA la lista quedaba un hueco en blanco ("tengo varios modelos:" y nada). Ahora reconstruye la lista con los candidatos reales, sin repetidos.
 - Orden: anti-invención corre ANTES del control de texto libre (si no, se tapaban la señal). Suite 49/49. Falta: actualizar_github.bat.
+
+## Modelos duplicados + auditoría 29/08/2026 (tarde-noche)
+- Modelos distintos con mismo nombre/precio: el contexto ya no repite renglones y la instrucción pide UNA mención + link "ver más" verificado (ahí el cliente ve cada modelo con su foto). Sin link: aclara que hay variantes. Test agregado. Suite 50/50.
+- Auditoría por temor a acceso remoto: git log limpio (todos los commits de w57eve@gmail.com, ninguno ajeno). Los "misterios" tuvieron causa técnica encontrada: web pasó a JS (mató el conteo de links), plantillas de Meta en genérico tras migrar a WABA, y regex de "116.mil". Recomendado al dueño: 2FA en GitHub/Render/Kommo/Meta y revisar usuarios autorizados en cada uno.
+
+## Fix "todo terreno" (caso Sonia) 29/08/2026 noche
+- "Todo terreno para criatura" matcheó productos LITERALES del catálogo grande (zapatillas 444.000, un autito) y contaminó la regla de oro de calzados. Causa: la búsqueda de candidatos corre antes de la regla. Ahora la jerga de pauta ("todo terreno"/"todoterreno") saltea la búsqueda literal: va directo catálogo chico + link web calzado + aclaración "si era otro producto, decime cuál con claridad" (agregada a la regla de oro). Test con el caso de Sonia. Suite 51/51.
+- Nota: el intercambio de Sonia se recuperó del JSONL de GitHub (el buffer en memoria se había reiniciado con el deploy) — la persistencia ya demostró su valor el primer día.
+- Falta: actualizar_github.bat.

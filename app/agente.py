@@ -639,6 +639,14 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             "cambiar de rubro u ofrecer productos que matcheen con la "
             "palabra 'foto'.\n")
 
+    # JERGA DE PAUTA pura ("todo terreno"): es el término del anuncio de los
+    # calzados IRUN. Buscarlo como texto trae literales absurdos del catálogo
+    # grande (le listó zapatillas de 444.000 y un AUTITO a Sonia, 29/08):
+    # cero candidatos acá; manda la regla de oro de calzados (catálogo chico
+    # + link web + aclaración por si busca otra cosa).
+    _msg_norm = busqueda.normalizar(mensaje)
+    _jerga_pauta = ("todo terreno" in _msg_norm or "todoterreno" in _msg_norm)
+
     sugeridos = []
     sku = productos.extraer_sku(mensaje)
     if sku:
@@ -651,6 +659,8 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                          "existe; ofrecé buscarlo o derivar.\n")
     elif _deixis:
         pass   # señala la foto/lo anterior: la búsqueda de texto solo mete ruido
+    elif _jerga_pauta:
+        pass   # jerga del anuncio: la búsqueda literal solo mete ruido
     else:
         _fuente = mensaje
         if (_acepta_oferta or _ya_derivado or _atributo or _pide_fotos) and historial:
@@ -667,7 +677,14 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
         elif len(cand) > 1:
             contexto += ("Varios candidatos (mostrá 3–4 con su foto y pedí que "
                          "elija, no adivines):\n")
+            # modelos distintos cargados con el MISMO nombre y precio: una
+            # sola línea (repetir "CALZADO IRUN 38-43 — 122.000" x3 mareaba)
+            _vistos_np = set()
             for _c in cand:
+                _k = (_c.get("nombre"), _c.get("precio"))
+                if _k in _vistos_np:
+                    continue
+                _vistos_np.add(_k)
                 contexto += await _linea(_c) + "\n"
 
     # COINCIDENCIA VISUAL: la foto del cliente ya fue comparada contra las
@@ -768,7 +785,10 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             "después de ese link. "
             "Si además encontré candidatos que coincidan con lo pedido, podés "
             "mostrar 2-3 con foto y precio antes del paso 1. NUNCA digas 'no "
-            "tenemos' en calzados: lo pautado está en el catálogo chico.\n")
+            "tenemos' en calzados: lo pautado está en el catálogo chico. "
+            "Antes del link final aclarale en una línea: si lo que vio era "
+            "OTRO producto (no calzado), que te diga con claridad cuál le "
+            "interesa.\n")
 
     # Link "ver más": resultados de ESTA búsqueda en la web (jerga ya mapeada,
     # ej. championes -> calzado). VERIFICADO contra el catálogo: corrige tipeos
@@ -802,6 +822,25 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
         contexto += ("OJO: la web NO tiene resultados para esta búsqueda. NO "
                      "mandes ningún link de buscador; resolvé con los "
                      "candidatos del catálogo o derivá.\n")
+
+    # MODELOS DISTINTOS con el MISMO nombre y precio (así están cargados en
+    # el sistema): no listar repetidos; lo útil es el link verificado, donde
+    # el cliente VE cada modelo con su foto (pedido del dueño 29/08).
+    _nom_pre = [(s.get("nombre"), s.get("precio")) for s in sugeridos]
+    if len(_nom_pre) != len(set(_nom_pre)):
+        if link_web:
+            contexto += (
+                "OJO: hay varios MODELOS DISTINTOS cargados con el MISMO "
+                "nombre y precio. NO repitas el mismo renglón: nombralo UNA "
+                "sola vez y mandá el link 'ver más' VERIFICADO de arriba, "
+                "explicando que ahí ve todos los modelos con sus fotos y "
+                "elige el que le guste.\n")
+        else:
+            contexto += (
+                "OJO: hay varios MODELOS DISTINTOS cargados con el MISMO "
+                "nombre y precio. NO repitas el mismo renglón: nombralo UNA "
+                "sola vez y aclará que hay varios modelos; el vendedor o el "
+                "catálogo rápido le muestran las variantes.\n")
 
     # Sin resultados en el catálogo -> no pelear con el cliente: aclarar UNA
     # vez como máximo, y si la charla ya venía sin acertar, derivar directo.
