@@ -51,7 +51,10 @@ def _limpiar_salida(texto: str, permitidos_extra=()) -> str:
                      ("platicar", "charlar"), ("platicamos", "charlamos"),
                      ("padrísimo", "buenísimo"), ("padrisimo", "buenisimo"),
                      ("chido", "bueno"), ("órale", "dale"), ("orale", "dale"),
-                     ("güey", ""), ("checa", "mirá"), ("checar", "mirar")):
+                     ("güey", ""), ("checa", "mirá"), ("checar", "mirar"),
+                     ("con quilombo", "con problemas"),
+                     ("quilombo", "inconveniente"), ("un despelote", "un lío"),
+                     ("despelote", "lío")):
         texto = _re.sub(_re.escape(_mx), _py, texto, flags=_re.IGNORECASE)
     # 2) links: solo los permitidos; la línea con un link inventado se borra entera
     permitidos = _LINKS_BASE + tuple(permitidos_extra)
@@ -249,6 +252,14 @@ Reglas duras (no las rompas nunca):
   incompleto. Si no tenés link real, mandá nombre + precio + SKU y listo.
 - Nada de meta-notas ni texto entre corchetes en la respuesta (el cliente lo ve
   tal cual). La única etiqueta permitida es [DERIVAR] al final.
+- **LO INTERNO ES INVISIBLE:** el contexto, los candidatos y las búsquedas son
+  TUYOS — el cliente no los mandó ni los ve. Jamás digas "me pasaste X", "veo
+  que me llegaron monederos", "el sistema me dio...". Si los candidatos no
+  coinciden con lo pedido, simplemente decí que confirmás con el equipo.
+- **NO confirmes fallas propias**: si el cliente dice "no anda el buscador",
+  no digas que está roto; ofrecé resolverlo vos: "contame qué buscás y te lo
+  encuentro yo al toque". Sin groserías ni lunfardo pesado (nada de
+  "quilombo", "despelote").
 - Léxico paraguayo: nada de mexicanismos tipo "¿te late?"; usá "¿te gustó?",
   "¿cuál te interesa?", "al toque", voseo siempre.
 - Si el producto pedido NO está: nunca cierres con "no tenemos" seco; ofrecé
@@ -501,7 +512,7 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                 "dorado", "dorada", "plateado", "plateada", "beige", "crema",
                 "fucsia", "bordo", "turquesa"}
     _TALLE_PALABRAS = {"numero", "nro", "n", "calce", "calse", "clace",
-                       "calze", "kalce", "talle", "talla", "taye"}
+                       "calze", "kalce", "clase", "talle", "talla", "taye"}
     _toks_attr = [w for w in busqueda.tokenizar(mensaje)
                   if w not in busqueda.STOP]
     _atributo = bool(historial and _toks_attr and all(
@@ -629,8 +640,8 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     elif sku and ("hacer un pedido" in _msg_n
                 or await catalogo_chico.categoria_de(sku)):
         eligio = True
-    elif (_re.search(r"\b(calce|calse|clace|calze|kalce|talle|talla|taye"
-                     r"|numero|nro|n)\s*:?\s*\d{2}\b", _msg_n)
+    elif (_re.search(r"\b(calce|calse|clace|calze|kalce|clase|talle|talla"
+                     r"|taye|numero|nro|n)\s*:?\s*\d{2}\b", _msg_n)
           and (historial or sugeridos or pauta_term)):
         eligio = True
     elif (_re.fullmatch(r"\s*(?:el\s+)?\d{2}(?:\s*(?:o|y|,|/)\s*\d{2})*\s*",

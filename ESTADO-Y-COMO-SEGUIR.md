@@ -198,6 +198,22 @@ Todo el paquete del día quedó vivo. Claves de la última hora:
   con miniatura instantánea (/foto/<sku>.jpg). También pendiente: reactivar el
   match visual (descomentar numpy/onnxruntime y verificar build).
 
+## 0.6 ANÁLISIS EXPERTO 2026-08-29 — suite de regresión + verificación en vivo
+- NUEVO: tests_regresion.py (35 tests) congela TODOS los incidentes resueltos
+  (jerga, hilo, elección, precios, links, fotos, audio, derivación). Correr con
+  `python3 tests_regresion.py` antes de cualquier deploy. El monitor de las
+  9/13/17/21 la corre en cada ronda y revierte ajustes que la rompan.
+- VERIFICADO EN VIVO (chat de Oscar, post-ajustes): el guard de relevancia evitó
+  ofrecer monederos como botines; "Calse 41" confirmó y derivó con Erika +
+  horario. El flujo elección->derivación FUNCIONA en producción.
+- 3 pulidos salidos de ese chat: "quilombo/despelote" filtrados, "clase 41"
+  reconocido como calce, y prohibido exponer lo interno ("veo que me pasaste
+  monederos") o confirmar fallas propias ("el buscador está roto").
+- Garantías duras vigentes (todas por código, no solo prompt): precios
+  verificados contra catálogo ([PRECIO-FIX]), listas sin candidatos bloqueadas
+  ([ANTI-INVENCION]), solo foto exacta autorizada, solo links verificados,
+  léxico filtrado, derivación equitativa/pegajosa con horario.
+
 ## 1. Dónde está TODO
 - Código del cerebro (GitHub): repo w57eve/cerebro-kommo. Copia local en
   C:\Users\Admin\Documents\aplicacion\automatizacion-kommo\cerebro-kommo
