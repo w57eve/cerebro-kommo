@@ -232,6 +232,15 @@ async def correr():
         await agente.procesar(_q, historial=h_champ)
         check(f"continuar el hilo (29/08 Juve): {_q!r}",
               "LO YA HABLADO" in CTX["ctx"])
+    # "Podés pasar porfa / Foto" es pedido de foto, no PODS (caso Gustavo:
+    # ofreció TIDE PODS y vapes con nicotina a quien miraba championes)
+    await agente.procesar("Podés pasar porfa\nFoto", historial=h_champ)
+    check("'podes pasar porfa foto' pide foto, no PODS (29/08 Gustavo)",
+          "pide FOTOS de lo que YA le mostraste" in CTX["ctx"]
+          and "POD" not in CTX["ctx"].upper().replace("PODES", ""))
+    c = await productos.buscar("Podés pasar porfa", limite=3)
+    check("'podes' no matchea PODS en el buscador (29/08 Gustavo)",
+          not any("POD" in x["nombre"].upper() for x in c))
     # "que llegó recién" = novedades, no LEGO (caso Augusto)
     await agente.procesar("Que llegó recién", historial=h_champ)
     check("'que llego recien' es novedades, no LEGO (29/08 Augusto)",
@@ -257,7 +266,9 @@ async def correr():
     # ── SONDA WEB singular/plural: el link lleva a la forma CORRECTA ──
     # ('maleta' en la web trae 16 maletas; 'maletas' un candado — 29/08)
     productos._instalar([{"sku": "77x", "nombre": "Maleta Grande de Viaje",
-                          "precio": 387000, "imagenes": []}])
+                          "precio": 387000, "imagenes": []},
+                         {"sku": "88y", "nombre": "Maleta Pequeña de Viaje",
+                          "precio": 252000, "imagenes": []}])
     async def _web_res_fake(term):
         return {"maleta": (16, ("77x", "88y")),
                 "maletas": (2, ("999",))}.get(term, (0, ()))
@@ -271,6 +282,9 @@ async def correr():
           "buscador?q=maleta\n" in CTX["ctx"].replace("q=maleta ", "q=maleta\n")
           or ("buscador?q=maleta" in CTX["ctx"]
               and "buscador?q=maletas" not in CTX["ctx"]))
+    # con varios candidatos y link verificado: instrucción de NO pegar lista
+    check("varios candidatos -> link, no lista en texto (29/08)",
+          "NO pegues esta lista" in CTX["ctx"])
     agente._web_resultados = web_res_off
     agente._web_conteo = web_off
     preparar()
@@ -292,6 +306,11 @@ async def correr():
           and "Senderismo" not in CTX["ctx"]
           and "catalogo.shoppingasia.com.py" in CTX["ctx"]
           and "OTRO producto" in CTX["ctx"])
+    # plural "el todos terrenos" también es la jerga (29/08 Misael)
+    await agente.procesar("Yo estoy interesado por el todos terrenos")
+    check("'todos terrenos' plural es jerga de pauta (29/08 Misael)",
+          "CONSULTA DE CALZADO" in CTX["ctx"]
+          and "Acrobático" not in CTX["ctx"])
     preparar()
 
     # ── ANTI-INVENCIÓN (29/08 fajas a quien miraba botines) ──

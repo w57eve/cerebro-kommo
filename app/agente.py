@@ -277,13 +277,13 @@ Cómo trabajás (MUY IMPORTANTE):
 - Cuando tengas el producto (o candidatos), mostralo con su **precio** en
   texto claro. Nada de listas de links.
 - Si hay un solo candidato claro: presentalo confirmando ("¿es este? *nombre*
-  — precio") y ahí sí podés sumar SU foto (una sola). Si hay varios: mostrá
-  3–4 opciones como TEXTO (*nombre* — precio) y que elija. La búsqueda no es
-  perfecta: si no estás seguro, ofrecé opciones o pedí el SKU, nunca inventes.
-- **El enlace a la web es la excepción**, no la regla: usalo solo si el cliente
-  ya vio tus opciones y quiere VER MÁS variedad, o está solo curioseando. En ese
-  caso mandá el "link ver más" que te paso en el contexto (lleva directo a los
-  resultados de SU búsqueda en la web, no a la portada).
+  — precio") y ahí sí podés sumar SU foto (una sola). Si hay VARIOS: NO
+  pegues la lista en texto (queda feo y el cliente quiere VER, no leer).
+  Decí en una línea qué familia encontraste y mandá el "link ver más"
+  VERIFICADO del contexto (lleva a los resultados de SU búsqueda, con
+  fotos); que elija ahí y te diga cuál. Solo si no hay link verificado,
+  nombrá 2-3 opciones. La búsqueda no es perfecta: si no estás seguro,
+  pedí el SKU o una captura, nunca inventes.
 - Si un candidato dice **SIN FOTO en el sistema** y el cliente pide su foto,
   decile con naturalidad que esa foto te la pasa el vendedor (o que la vea en
   la web si hay "link ver más"). NUNCA inventes un link de foto ni prometas
@@ -293,10 +293,9 @@ Cómo trabajás (MUY IMPORTANTE):
   breve y terminá el mensaje con la etiqueta [DERIVAR] en una línea aparte. El
   sistema la reemplaza por el contacto del vendedor de turno. No inventes vos
   números ni nombres de vendedores.
-- **POCOS LINKS (los clientes casi no los tocan).** Presentá los candidatos
-  como TEXTO: *nombre* — precio, sin link de foto por cada uno. Links
-  permitidos por mensaje: el catálogo rápido (si aplica) y el "ver más"
-  verificado del contexto — nada más. UNA foto como máximo, y solo cuando
+- **POCOS LINKS por mensaje.** Links permitidos: el catálogo rápido (si
+  aplica) y el "ver más" verificado del contexto — nada más, y sin link de
+  foto por cada candidato. UNA foto como máximo, y solo cuando
   estés confirmando UN producto puntual ("¿es este?") o el cliente pida ver
   foto: en ese caso el link de foto va pelado en su propia línea (nunca
   markdown ![](url); WhatsApp lo muestra roto).
@@ -634,14 +633,25 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     # "Me pasan fotos (de las opciones)", "mandame fotos", "tenés fotos?":
     # pide FOTOS de lo que YA se le mostró. Sin esto, "fotos" se buscaba como
     # producto (a Stanley, mirando organizadores, le ofreció ÁLBUMES DE FOTOS).
-    _pide_fotos = bool(historial and _re.fullmatch(
-        r"\s*(me\s+|nos\s+)?(pasa[sn]?|pasame|manda[sn]?|mandame|envia[sn]?"
-        r"|enviame|muestra[sn]?|mostrame|tene[ns]|tenes|tienen|hay|quiero"
-        r"(\s+ver)?|quisiera(\s+ver)?|puedo\s+ver|a\s+ver|ver)?\s*"
-        r"(la|las|una|unas|mas|los|sus)?\s*(foto|fotos|fotito|fotitos"
-        r"|imagen|imagenes)(\s+de\s+(la|las|los|esos?|esas?|estos?|estas?)?"
-        r"\s*(opciones|modelos|productos|articulos|esos?|esas?)?)?\s*"
-        r"(porfa|por\s+favor)?[?.!\s]*", busqueda.normalizar(mensaje)))
+    # (por tokens: el orden libre rompía el regex — "Podés pasar porfa Foto"
+    #  de Gustavo terminó buscando 'pods' y ofreciendo VAPES — 29/08)
+    _FOTO_PALABRAS = {"foto", "fotos", "fotito", "fotitos", "imagen",
+                      "imagenes", "fotografia", "fotografias"}
+    _FOTO_RELLENO = {
+        "me", "nos", "podes", "podrias", "puedes", "puede", "podras", "pasa",
+        "pasas", "pasan", "pasame", "pasar", "pasarme", "manda", "mandas",
+        "mandame", "mandar", "envia", "enviame", "enviar", "muestra",
+        "mostrame", "mostrar", "tenes", "tienen", "hay", "quiero",
+        "quisiera", "necesito", "puedo", "ver", "a", "la", "las", "una",
+        "unas", "mas", "los", "el", "sus", "su", "de", "del", "y", "o",
+        "opciones", "modelos", "productos", "articulos", "esos", "esas",
+        "estos", "estas", "ese", "esa", "este", "otra", "otro", "vez",
+        "porfa", "favor", "por", "si", "dale", "hola", "buenas",
+    }
+    _toks_foto = set(_re.findall(r"[a-z]+", busqueda.normalizar(mensaje)))
+    _pide_fotos = bool(
+        historial and _toks_foto and _toks_foto & _FOTO_PALABRAS
+        and _toks_foto <= (_FOTO_PALABRAS | _FOTO_RELLENO))
     if _pide_fotos:
         contexto += (
             "El cliente pide FOTOS de lo que YA le mostraste en la "
@@ -697,7 +707,8 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     # cero candidatos acá; manda la regla de oro de calzados (catálogo chico
     # + link web + aclaración por si busca otra cosa).
     _msg_norm = busqueda.normalizar(mensaje)
-    _jerga_pauta = ("todo terreno" in _msg_norm or "todoterreno" in _msg_norm)
+    _jerga_pauta = bool(_re.search(
+        r"todos?\s+(los\s+)?terrenos?|todoterrenos?", _msg_norm))
 
     sugeridos = []
     sku = productos.extraer_sku(mensaje)
@@ -731,8 +742,13 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
         if len(cand) == 1:
             contexto += "Posible producto (confirmá con el cliente):\n" + await _linea(cand[0]) + "\n"
         elif len(cand) > 1:
-            contexto += ("Varios candidatos (mostrá 3–4 con su foto y pedí que "
-                         "elija, no adivines):\n")
+            contexto += (
+                "Varios candidatos. OJO: NO pegues esta lista en texto al "
+                "cliente (queda feo y el cliente quiere VER). Decí en UNA "
+                "línea qué encontraste (el rubro/familia) y mandá el link "
+                "'ver más' VERIFICADO si te lo doy abajo, para que los vea "
+                "con fotos y elija. Solo si NO hay link verificado, nombrá "
+                "2-3 opciones máximo. Los candidatos (para tu referencia):\n")
             # modelos distintos cargados con el MISMO nombre y precio: una
             # sola línea (repetir "CALZADO IRUN 38-43 — 122.000" x3 mareaba)
             _vistos_np = set()
@@ -783,8 +799,9 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     _msg_n = busqueda.normalizar(mensaje)
     _toks = set(busqueda.tokenizar(mensaje))
     pauta_term = ("calzado" if (_toks & _CALZADO_TOKENS
-                                or "todo terreno" in _msg_n
-                                or "todoterreno" in _msg_n) else "")
+                                or _re.search(r"todos?\s+(los\s+)?terrenos?"
+                                              r"|todoterrenos?", _msg_n))
+                  else "")
 
     # ── ELECCIÓN CONCRETADA (detección DETERMINÍSTICA en el servidor) ──
     # El cliente ya eligió si: mandó un SKU (venía del botón "Hacer pedido" o

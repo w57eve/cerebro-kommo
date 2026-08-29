@@ -43,6 +43,9 @@ STOP = {
     # (a Brenda le taparon las maletas unas chanclas por talla — 29/08)
     "tall", "talll", "quetal", "qtal", "buenass", "holaa", "holaaa",
     "disponen", "dispone", "disponible", "disponibles",
+    # "Podés pasar porfa" matcheaba PODS (ofreció vapes a Gustavo — 29/08)
+    "podes", "podrias", "puedes", "puede", "podras", "pasame", "pasar",
+    "pasas", "pasan", "foto", "fotos", "imagen", "imagenes",
 }
 
 # ── Nombres que indican ACCESORIO (no el producto en sí). Si el nombre empieza

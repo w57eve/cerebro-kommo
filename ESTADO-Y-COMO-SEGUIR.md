@@ -352,3 +352,9 @@ Nombres EXACTOS o se leen vacías.
 - Confirmado con la API de la web: el buscador de la página es LITERAL — "maleta" trae 16 maletas, "maletas" trae un candado y una balanza; "mochila" 34, "mochilas" 3 juguetes. Los nombres están cargados en singular.
 - Nueva SONDA en agente.py: antes de armar el link "ver más", prueba las variantes (tal cual / singular / +s) contra /get-productos y elige la que CONTIENE el SKU del candidato que estamos recomendando (o la de más resultados). _web_resultados devuelve total+SKUs de la 1ra página, cacheado 6h. Marca [SONDA-WEB] en el log.
 - Suite 63/63. Falta: actualizar_github.bat.
+
+## Caso Gustavo + política de links 29/08/2026 (noche 2)
+- Gustavo (24755852): "Podés pasar porfa / Foto" → buscó "podes" → PODS → ¡ofreció TIDE PODS y vapes con nicotina!; "Foto" solo → juegos de té, BBQ bucket, alambre. FIX: _pide_fotos ahora es por tokens (orden libre) y podes/pasar/foto/etc. entraron al STOP del buscador.
+- Misael: "el todos terrenos" (plural) no matcheaba la jerga → ahora todos?/terrenos? con regex, mismo flujo calzados.
+- POLÍTICA NUEVA (pedido del dueño): con VARIOS candidatos NO se pega la lista en texto — una línea con la familia + link "ver más" VERIFICADO (sonda) para que el cliente VEA con fotos. Solo sin link: 2-3 nombres máx. Prompt + contexto actualizados.
+- Suite 67/67. Falta: actualizar_github.bat.
