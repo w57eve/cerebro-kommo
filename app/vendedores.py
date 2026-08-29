@@ -99,13 +99,11 @@ def mensaje_derivacion(sku: str = "", consulta: str = "", lead_id: str = "") -> 
     from datetime import datetime, timedelta, timezone
     hora_py = datetime.now(timezone(timedelta(hours=-3))).hour
     if 9 <= hora_py < 19:
-        aviso = (f"{la} {rol.split()[0].lower()} te va a estar escribiendo "
-                 f"para pasarte los detalles. Si querés hablarle directo, "
-                 f"tocá este enlace 👇 (atiende de 9 a 19 hs)")
+        aviso = (f"Tocá este enlace 👇 y hablás directo con {nombre}, que te "
+                 f"pasa todos los detalles (atiende de 9 a 19 hs)")
     else:
-        aviso = (f"{la} {rol.split()[0].lower()} te escribe apenas arranque "
-                 f"su horario de atención (9 a 19 hs). Podés adelantarle tu "
-                 f"consulta tocando este enlace 👇")
+        aviso = (f"Tocá este enlace 👇 y dejale tu consulta; {nombre} te "
+                 f"responde apenas arranque su horario de atención (9 a 19 hs)")
     texto = (
         f"Te paso con {nombre}, {rol} de nuestro equipo 💬\n"
         f"{aviso}\n{link}"

@@ -152,6 +152,9 @@ async def correr():
     # ── DERIVACIÓN: texto y equidad ──
     d = vendedores.mensaje_derivacion(consulta="x", lead_id="eq1")
     check("derivacion menciona horario 9-19 (29/08)", "9 a 19" in d["texto"])
+    check("derivacion NO promete que la vendedora escribe sola (29/08)",
+          "escribiendo" not in d["texto"] and "va a escribir" not in d["texto"]
+          and "Tocá este enlace" in d["texto"])
     v1 = vendedores.mensaje_derivacion(consulta="x", lead_id="eqA")["vendedor"]
     v2 = vendedores.mensaje_derivacion(consulta="x", lead_id="eqB")["vendedor"]
     v1b = vendedores.mensaje_derivacion(consulta="y", lead_id="eqA")["vendedor"]

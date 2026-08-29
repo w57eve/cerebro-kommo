@@ -496,9 +496,10 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             "vendedor. El tema de la conversación sigue siendo EL MISMO "
             "producto del que venían hablando (mirá la conversación previa): "
             "NUNCA cambies de producto ni de rubro. Si pregunta algo más, "
-            "respondé sobre ESE producto y recordale con naturalidad que el "
-            "vendedor le va a estar pasando los detalles (atiende de 9 a 19 "
-            "hs). Si insiste en VER el producto, mostrale la foto del "
+            "respondé sobre ESE producto y recordale con naturalidad que "
+            "TOCANDO el enlace que ya le pasaste habla directo con el "
+            "vendedor (atiende de 9 a 19 hs) — el vendedor NO le va a "
+            "escribir solo: el cliente debe tocar el enlace. Si insiste en VER el producto, mostrale la foto del "
             "candidato del contexto. NO vuelvas a derivar ([DERIVAR] "
             "prohibido acá): solo recordá el mismo contacto si hace falta.\n")
 
