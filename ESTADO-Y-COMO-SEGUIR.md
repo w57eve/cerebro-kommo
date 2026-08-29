@@ -300,3 +300,9 @@ Nombres EXACTOS o se leen vacías.
 - FIX: "Me pasan fotos de las opciones" (caso Stanley, lead 24740965) buscaba "fotos" como producto y ofrecía ÁLBUMES DE FOTOS. Ahora _pide_fotos en agente.py detecta el pedido, mantiene los productos del hilo y excluye "fotos" de la búsqueda. +4 tests. Suite completa OK. Falta: actualizar_github.bat.
 - Verificado en producción: fix de ofertas ya desplegado y funcionando (2 leads lo recibieron bien). Catálogo OK: 49.536 productos, fetch 200.
 - Detectado para futuro: catálogo con nombres genéricos repetidos ("ORGANIZADOR" x4, "ZAPATILLA", "CALZADOS") — el bot lista 4 veces el mismo nombre con precios distintos y el cliente no puede distinguir. Ver enriquecer nombres o instruir diferenciación por foto.
+
+## Fix links web + sin-foto 29/08/2026
+- BUG GRANDE RESUELTO: la web pasó a renderizar el buscador con JS → el HTML crudo ya no trae "/producto/" → _web_conteo daba siempre 0 → el bot NUNCA mandaba el "link ver más". Ahora usa la API JSON del propio front (/get-productos?query_string=... → paginacion.total), verificada sin cookies (200). Fallback al conteo viejo por si vuelven al HTML.
+- Productos sin foto: a_texto marca "SIN FOTO en el sistema" + regla en el prompt: si piden foto de uno así, decir que la pasa el vendedor; nunca inventar link. +1 test.
+- Suite completa OK. Falta: actualizar_github.bat (incluye también el fix pide-fotos).
+- PENDIENTE (urgente, decidido con el dueño): aprendizaje persistente — el registro se borra en cada deploy de Render. Propuesta: token de GitHub en Render y aprendizaje.py sube JSONL diario al repo; el monitoreo lo analiza y convierte en sinónimos/reglas/conocimiento.

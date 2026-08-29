@@ -97,13 +97,21 @@ async def _web_conteo(term: str) -> int:
     if v and _t.time() - v[0] < 6 * 3600:
         return v[1]
     n = 0
+    # OJO (29/08/2026): la web pasó a renderizar los resultados con JS, así
+    # que el HTML crudo de /buscador ya NO trae "/producto/" (siempre daba 0
+    # y el bot nunca mandaba el link). Se usa la API JSON que usa el propio
+    # front: /get-productos?query_string=... -> paginacion.total.
     try:
         async with _httpx.AsyncClient(timeout=7) as cli:
             r = await cli.get(
-                f"https://www.shoppingasia.com.py/buscador?q={_q(term)}",
-                headers={"User-Agent": "cerebro"})
+                "https://www.shoppingasia.com.py/get-productos",
+                params={"page": 1, "query_string": term},
+                headers={"User-Agent": "cerebro", "Accept": "application/json"})
         if r.status_code == 200:
-            n = r.text.count("/producto/")
+            try:
+                n = int((r.json().get("paginacion") or {}).get("total") or 0)
+            except Exception:
+                n = r.text.count("/producto/")   # por si vuelven al HTML
     except Exception:
         n = 0   # ante la duda, mejor sin link que con un link vacío
     if len(_web_cache) > 500:
@@ -205,6 +213,10 @@ Cómo trabajás (MUY IMPORTANTE):
   ya vio tus opciones y quiere VER MÁS variedad, o está solo curioseando. En ese
   caso mandá el "link ver más" que te paso en el contexto (lleva directo a los
   resultados de SU búsqueda en la web, no a la portada).
+- Si un candidato dice **SIN FOTO en el sistema** y el cliente pide su foto,
+  decile con naturalidad que esa foto te la pasa el vendedor (o que la vea en
+  la web si hay "link ver más"). NUNCA inventes un link de foto ni prometas
+  mandarla vos.
 - Si el cliente quiere CONCRETAR (pagar, reservar, comprar ya), tiene una QUEJA
   o reclamo, o no podés resolver con los datos que tenés: escribí tu respuesta
   breve y terminá el mensaje con la etiqueta [DERIVAR] en una línea aparte. El

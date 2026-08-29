@@ -197,4 +197,7 @@ def a_texto(it: dict) -> str:
     f = foto_url(it)
     if f:
         linea += f" | foto: {f}"
+    else:
+        # sin foto cargada: que la IA lo sepa y no prometa ni invente una
+        linea += " | SIN FOTO en el sistema"
     return linea

@@ -120,6 +120,14 @@ async def correr():
         check(f"pide fotos sigue el hilo (29/08 Stanley): {_q!r}",
               "pide FOTOS de lo que YA le mostraste" in CTX["ctx"]
               and "ALBUM" not in CTX["ctx"].upper())
+    # Producto sin foto queda marcado para que la IA no invente una (29/08)
+    check("producto sin foto marcado (29/08)",
+          "SIN FOTO en el sistema" in productos.a_texto(
+              {"sku": "1", "nombre": "CHAMPION INF", "precio": 240000,
+               "imagenes": []})
+          and "SIN FOTO" not in productos.a_texto(
+              {"sku": "2", "nombre": "X", "precio": 1000,
+               "imagenes": ["https://www.shoppingasia.com.py/storage/sku/x.jpg"]}))
     h164 = [{"cliente": "championes?", "agente": "Opciones:\n*CALZADO IRUN 40-44* — 164.000 gs"}]
     await agente.procesar("el de 164", historial=h164)
     check("'el de 164' referencia a la lista (29/08)", "coincide con un PRECIO" in CTX["ctx"])
