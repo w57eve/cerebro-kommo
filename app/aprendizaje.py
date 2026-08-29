@@ -125,6 +125,51 @@ def subir_ahora(cli=None) -> str:
             cli.close()
 
 
+def cargar_memoria(max_dias: int = 2, max_por_lead: int = 8, cli=None) -> dict:
+    """Reconstruye {lead: [{cliente, agente}, ...]} desde los JSONL subidos a
+    GitHub, para que un deploy NO borre el hilo de las charlas en curso
+    (pasaba: el cliente seguía la charla y el bot arrancaba de cero)."""
+    token = (os.getenv("GITHUB_TOKEN", "") or "").strip()
+    if not token:
+        return {}
+    propio = cli is None
+    if propio:
+        import httpx
+        cli = httpx.Client(timeout=15)
+    out = {}
+    try:
+        for d in range(max_dias):
+            dia = time.strftime("%Y-%m-%d", time.gmtime(time.time() - d * 86400))
+            url = (f"https://api.github.com/repos/{GH_REPO}/contents/"
+                   f"datos/aprendizaje/{dia}.jsonl?ref={GH_RAMA}")
+            r = cli.get(url, headers={**_gh_headers(token),
+                                      "Accept": "application/vnd.github.raw+json"})
+            if r.status_code != 200:
+                continue
+            for ln in r.text.splitlines():
+                try:
+                    reg = json.loads(ln)
+                except Exception:
+                    continue
+                lead = str(reg.get("lead") or "")
+                if not lead or reg.get("pregunta", "").startswith("["):
+                    continue   # sin lead o mensajes de prueba: afuera
+                out.setdefault(lead, []).append(
+                    {"ts": reg.get("ts", 0),
+                     "cliente": (reg.get("pregunta") or "")[:300],
+                     "agente": (reg.get("respuesta") or "")[:300]})
+        for k in list(out):
+            out[k] = sorted(out[k], key=lambda x: x["ts"])[-max_por_lead:]
+            for e in out[k]:
+                e.pop("ts", None)
+    except Exception as e:
+        print(f"[APRENDIZAJE] memoria no restaurada: {e}", flush=True)
+    finally:
+        if propio:
+            cli.close()
+    return out
+
+
 def _flush_si_toca():
     global _ultimo_flush
     ahora = time.time()

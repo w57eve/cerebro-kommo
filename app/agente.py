@@ -484,9 +484,12 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     # "Esto", "este", "es esta", "ese quiero": el cliente SEÑALA algo (la foto
     # o lo anterior), no nombra un producto. Buscar ese texto trae basura
     # (le llegó a ofrecer cestos y perfumes a quien mandó una zapatilla).
+    # (tolera typos de "sería": "este ceria" buscaba 'ceria' y ofrecía
+    #  peines de CERDAS — 29/08)
     _deixis = bool(_re.fullmatch(
         r"\s*(es\s+)?(esto|este|esta|ese|esa|eso)( de ah[ií])?( quiero| busco"
-        r"| me interesa)?[.!\s]*", busqueda.normalizar(mensaje)))
+        r"| me interesa| seria| ceria| sera| es| nomas)?[.!?\s]*",
+        busqueda.normalizar(mensaje)))
     if _deixis and (historial or "(foto del cliente:" in mensaje):
         contexto += (
             "OJO: el cliente está SEÑALANDO ('esto/ese') la foto que mandó o "
@@ -525,7 +528,9 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     # producto para buscar. Sin esto, "116" matcheaba cualquier cosa (llegó a
     # ofrecer estuches de celular a alguien que miraba botines).
     if _re.search(r"\b\d{2,3}(?:[.,]\d{3})?\s*[.,]?\s*"
-                  r"(?:mil|gs|guaranies|guaraníes)\b", mensaje.lower()):
+                  r"(?:mil|gs|guaranies|guaraníes)\b"
+                  r"|\b\d{2,3}000\b",   # "170000" pegado, sin puntos (29/08)
+                  mensaje.lower()):
         contexto += (
             "OJO: el cliente menciona un PRECIO como referencia ('el de X "
             "mil'). NO es un producto para buscar: se refiere a algo que ya "
@@ -639,6 +644,45 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             "cambiar de rubro u ofrecer productos que matcheen con la "
             "palabra 'foto'.\n")
 
+    # "Pásame las opciones y precio", "quiero más información", "más
+    # detalles": pide CONTINUAR con lo ya hablado. Sin esto, se buscaban
+    # las palabras 'opciones'/'información' como producto (a Juve le
+    # respondió "la búsqueda no me da resultados claros" — 29/08).
+    _pide_continuar = bool(historial and _re.fullmatch(
+        r"\s*(hola\s+)?(me\s+|nos\s+)?(pasa(me|s|n)?|dame|dime|decime"
+        r"|manda(me)?|envia(me)?|tira(me)?|quiero|quisiera|necesito"
+        r"|tene[ns]|tienen|hay)?\s*(ver\s+)?(mas|la|las|los|el|sus?|tus?)?"
+        r"\s*(info|informacion|detalles?|opciones|precios?|costos?|datos"
+        r"|modelos|variedades)(\s+y\s+(precios?|fotos?|detalles?|opciones"
+        r"|modelos))?\s*(porfa|por\s+favor)?[?.!\s]*",
+        busqueda.normalizar(mensaje)))
+    if _pide_continuar:
+        contexto += (
+            "El cliente pide MÁS INFORMACIÓN / OPCIONES / PRECIOS de LO YA "
+            "HABLADO en la conversación previa: NO es un producto nuevo para "
+            "buscar. Seguí con ESE tema: ampliá detalles, mostrá más modelos "
+            "del MISMO rubro o el link 'ver más' si lo tenés. PROHIBIDO "
+            "cambiar de rubro o decir que la búsqueda no da resultados: lo "
+            "que pide está en la charla previa.\n")
+
+    # "¿Qué llegó recién?", "novedades", "lo nuevo": pregunta por INGRESOS
+    # RECIENTES, no un producto. Buscar literal traía basura ('llegó'
+    # matcheaba LEGO: le ofreció MINI LEGOS a quien miraba championes 29/08).
+    _msg_nov = busqueda.normalizar(mensaje)
+    _pide_novedades = bool(
+        _re.search(r"\b(que\s+)?(llego|llegaron|entro|entraron)\b", _msg_nov)
+        and _re.search(r"\b(recien|nuevo|nuevos|nueva|nuevas|hoy|ahora)\b",
+                       _msg_nov)
+        or _re.search(r"\bnovedades\b|\blo\s+nuevo\b|\brecien\s+llegad",
+                      _msg_nov))
+    if _pide_novedades:
+        contexto += (
+            "El cliente pregunta por NOVEDADES / lo recién llegado: NO "
+            "busques esas palabras como producto. Si venían hablando de un "
+            "rubro, ofrecé ver lo nuevo de ESE rubro (link 'ver más' si lo "
+            "tenés) o derivá con [DERIVAR]: el vendedor conoce los ingresos "
+            "recientes. No inventes productos ni cambies de rubro.\n")
+
     # JERGA DE PAUTA pura ("todo terreno"): es el término del anuncio de los
     # calzados IRUN. Buscarlo como texto trae literales absurdos del catálogo
     # grande (le listó zapatillas de 444.000 y un AUTITO a Sonia, 29/08):
@@ -661,15 +705,19 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
         pass   # señala la foto/lo anterior: la búsqueda de texto solo mete ruido
     elif _jerga_pauta:
         pass   # jerga del anuncio: la búsqueda literal solo mete ruido
+    elif _pide_novedades:
+        pass   # pregunta por lo nuevo: la búsqueda literal solo mete ruido
     else:
         _fuente = mensaje
-        if (_acepta_oferta or _ya_derivado or _atributo or _pide_fotos) and historial:
+        if (_acepta_oferta or _ya_derivado or _atributo or _pide_fotos
+                or _pide_continuar) and historial:
             # el HILO completo reciente: lo que pidió el cliente + lo ofrecido
-            # (si pide fotos, el mensaje actual NO entra: "fotos" mete ruido)
+            # (si pide fotos/continuar, el mensaje actual NO entra: sus
+            # palabras genéricas solo meten ruido)
             _fuente = " ".join(
                 [h.get("cliente", "") for h in list(historial)[-3:]]
                 + [(historial[-1].get("agente") or "")[:200]]
-                + ([] if _pide_fotos else [mensaje]))
+                + ([] if (_pide_fotos or _pide_continuar) else [mensaje]))
         cand = await productos.buscar(_fuente, limite=5)
         sugeridos = cand
         if len(cand) == 1:
@@ -844,7 +892,8 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
 
     # Sin resultados en el catálogo -> no pelear con el cliente: aclarar UNA
     # vez como máximo, y si la charla ya venía sin acertar, derivar directo.
-    if not sugeridos and not sku and not pauta_term:
+    if (not sugeridos and not sku and not pauta_term
+            and not _pide_novedades):   # novedades ya tiene su instrucción
         if historial:
             contexto += (
                 "NO encontré nada en el catálogo para este pedido y la charla "

@@ -217,6 +217,27 @@ async def correr():
     agente._web_conteo = web_off
     preparar()   # restaurar catálogo real para lo que siga
 
+    # ── CONTEXTO ANTE FRASES GENÉRICAS (29/08 noche) ──
+    h_champ = [{"cliente": "Champion", "agente": "Tengo estos:\n*CHAMPION INF* — 240.000 gs"}]
+    # typo de "sería" es deixis, no producto ("Este ceria" -> peines de CERDAS)
+    await agente.procesar("Este ceria", historial=h_champ)
+    check("'este ceria' (typo de seria) es deixis (29/08)", "SEÑALANDO" in CTX["ctx"])
+    # pedir opciones/info/precios continúa el hilo (caso Juve)
+    for _q in ["Pásame las opciones y precio", "quiero mas informacion",
+               "dame mas detalles", "precios?"]:
+        await agente.procesar(_q, historial=h_champ)
+        check(f"continuar el hilo (29/08 Juve): {_q!r}",
+              "LO YA HABLADO" in CTX["ctx"])
+    # "que llegó recién" = novedades, no LEGO (caso Augusto)
+    await agente.procesar("Que llegó recién", historial=h_champ)
+    check("'que llego recien' es novedades, no LEGO (29/08 Augusto)",
+          "NOVEDADES" in CTX["ctx"] and "LEGO" not in CTX["ctx"].upper())
+    # "170000" pegado sin puntos es referencia a precio
+    await agente.procesar("170000", historial=h_champ)
+    check("'170000' sin puntos es precio (29/08 Juve)",
+          "PRECIO como referencia" in CTX["ctx"]
+          or "coincide con un PRECIO" in CTX["ctx"])
+
     # ── "TODO TERRENO" = jerga del anuncio IRUN, no búsqueda literal ──
     # (29/08 Sonia: le listó zapatillas de otra familia y un AUTITO)
     productos._instalar([
@@ -293,7 +314,22 @@ async def correr():
     check("aprendizaje sube a github preservando lo previo (29/08)",
           err == "" and fake.subido and fake.subido.startswith("{\"viejo\": 1}")
           and '"hola"' in fake.subido and len(_ap._pendientes) == 0)
+    # Restauración de memoria post-deploy desde los JSONL (29/08)
+    class _GHMem:
+        def get(self, url, **kw):
+            r = _Resp(200)
+            r.text = ('{"ts": 2, "lead": "77", "pregunta": "azul?", "respuesta": "sí"}\n'
+                      '{"ts": 1, "lead": "77", "pregunta": "championes", "respuesta": "IRUN"}\n'
+                      '{"ts": 3, "lead": "", "pregunta": "x", "respuesta": "y"}\n')
+            return r
+    mem = _ap.cargar_memoria(max_dias=1, cli=_GHMem())
+    check("memoria post-deploy restaurada y ordenada (29/08)",
+          list(mem.keys()) == ["77"] and len(mem["77"]) == 2
+          and mem["77"][0]["cliente"] == "championes"
+          and mem["77"][1]["agente"] == "sí")
     _os.environ.pop("GITHUB_TOKEN", None)
+    check("memoria sin token devuelve vacío (29/08)",
+          _ap.cargar_memoria() == {})
 
     print()
     if FALLOS:

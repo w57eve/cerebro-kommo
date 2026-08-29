@@ -204,6 +204,28 @@ _ultimos_raw = []   # últimos webhooks crudos (para descubrir campos de pautas)
 async def _arranque():
     # Crea/encuentra el campo "Respuesta bot" para poder elegirlo en el bot.
     await kommo_api.asegurar_campo()
+    # Restaura la memoria de las charlas desde GitHub: un deploy ya no corta
+    # el hilo de las conversaciones en curso (29/08).
+    try:
+        import asyncio as _aio
+        from collections import deque as _dq
+        _rest = await _aio.to_thread(aprendizaje.cargar_memoria)
+        for _k, _v in _rest.items():
+            _memoria[_k] = _dq(_v, maxlen=8)
+        print(f"[ARRANQUE] memoria restaurada: {len(_rest)} charlas",
+              flush=True)
+    except Exception as _e:
+        print(f"[ARRANQUE] memoria no restaurada: {_e}", flush=True)
+
+
+@app.on_event("shutdown")
+async def _cierre():
+    # Deploy/reinicio: subir lo pendiente del aprendizaje antes de morir.
+    try:
+        import asyncio as _aio
+        await _aio.to_thread(aprendizaje.subir_ahora)
+    except Exception:
+        pass
 
 
 def _extraer_mensajes(body: dict) -> list:

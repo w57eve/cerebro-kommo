@@ -331,3 +331,15 @@ Nombres EXACTOS o se leen vacías.
 - "Todo terreno para criatura" matcheó productos LITERALES del catálogo grande (zapatillas 444.000, un autito) y contaminó la regla de oro de calzados. Causa: la búsqueda de candidatos corre antes de la regla. Ahora la jerga de pauta ("todo terreno"/"todoterreno") saltea la búsqueda literal: va directo catálogo chico + link web calzado + aclaración "si era otro producto, decime cuál con claridad" (agregada a la regla de oro). Test con el caso de Sonia. Suite 51/51.
 - Nota: el intercambio de Sonia se recuperó del JSONL de GitHub (el buffer en memoria se había reiniciado con el deploy) — la persistencia ya demostró su valor el primer día.
 - Falta: actualizar_github.bat.
+
+## Deploy sin amnesia 29/08/2026 noche
+- Al arrancar, el servidor restaura la memoria de charlas (hasta 8 intercambios por lead, últimos 2 días) desde los JSONL de GitHub → un deploy ya no corta el hilo de conversaciones en curso. Al apagarse (deploy/reinicio), sube los registros pendientes antes de morir. Tests con GitHub simulado. Suite 53/53.
+- Falta: actualizar_github.bat.
+
+## Monitoreo 29/08/2026 (noche) — contexto ante frases genéricas
+- Suite OK antes de tocar. Casos reales del JSONL/aprendizaje:
+  1) "Este ceria" (typo de "sería") se buscó como producto → peines de CERDAS. Deixis ahora tolera seria/ceria/sera.
+  2) "Pásame las opciones y precio" / "quiero más información" con charla previa → buscaba esas palabras (a Juve: "la búsqueda no da resultados"). Nuevo _pide_continuar: sigue el hilo, sin buscar el mensaje literal.
+  3) "Que llegó recién" → matcheó LEGO. Nuevo _pide_novedades: no busca literal; ofrece lo nuevo del rubro hablado o deriva.
+  4) "170000" pegado sin puntos ahora cuenta como referencia a precio.
+- 7 tests nuevos con los casos reales. Suite 60/60. GitHub aprendizaje OK (56 regs, sin errores). Falta: actualizar_github.bat.
