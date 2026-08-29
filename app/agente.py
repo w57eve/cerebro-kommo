@@ -402,7 +402,10 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     # catálogo chico (en el grande/web muchos ni aparecen con ese nombre).
     _CALZADO_TOKENS = {"champion", "champione", "zapatilla", "teni", "calzado",
                        "botin", "chutera", "taquilla", "futsal", "futbol",
-                       "deportivo", "irun"}
+                       "deportivo", "irun",
+                       # typos frecuentes de celular (letras vecinas / s-c-z)
+                       "fitsal", "futzal", "fusal", "chanpion", "champio",
+                       "sapatilla", "zapato", "sapato", "calsado", "calzada"}
     _msg_n = busqueda.normalizar(mensaje)
     _toks = set(busqueda.tokenizar(mensaje))
     pauta_term = ("calzado" if (_toks & _CALZADO_TOKENS
@@ -418,11 +421,13 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     if sku and ("hacer un pedido" in _msg_n
                 or await catalogo_chico.categoria_de(sku)):
         eligio = True
-    elif (_re.search(r"\b(calce|talle|numero|nro|n)\s*:?\s*\d{2}\b", _msg_n)
+    elif (_re.search(r"\b(calce|calse|clace|calze|kalce|talle|talla|taye"
+                     r"|numero|nro|n)\s*:?\s*\d{2}\b", _msg_n)
           and (historial or sugeridos or pauta_term)):
         eligio = True
-    elif _re.fullmatch(r"\s*(el\s+)?\d{2}\s*", _msg_n) and historial:
-        eligio = True
+    elif (_re.fullmatch(r"\s*(?:el\s+)?\d{2}(?:\s*(?:o|y|,|/)\s*\d{2})*\s*",
+                        _msg_n) and historial):
+        eligio = True   # "42", "el 40", "41 o 39" respondiendo al talle
     if eligio:
         contexto += (
             "ELECCIÓN CONCRETADA: el cliente YA eligió (producto y/o calce). "
@@ -440,8 +445,9 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             "acá con el calzado elegido; si preguntó por talle/calce, recordá "
             "la horma chica (conviene un número más). "
             "2) el link de la web va SIEMPRE AL FINAL, como ÚLTIMO renglón del "
-            "mensaje: 'acá tenés más opciones 👉' + el link 'ver más' que te "
-            "doy abajo. Nada va después de ese link. "
+            "mensaje: 'en la página tenés más opciones, deslizá hacia abajo "
+            "para verlas 👉' + el link 'ver más' que te doy abajo. Nada va "
+            "después de ese link. "
             "Si además encontré candidatos que coincidan con lo pedido, podés "
             "mostrar 2-3 con foto y precio antes del paso 1. NUNCA digas 'no "
             "tenemos' en calzados: lo pautado está en el catálogo chico.\n")
