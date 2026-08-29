@@ -423,10 +423,13 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                 "gris", "marron", "celeste", "violeta", "lila", "naranja",
                 "dorado", "dorada", "plateado", "plateada", "beige", "crema",
                 "fucsia", "bordo", "turquesa"}
+    _TALLE_PALABRAS = {"numero", "nro", "n", "calce", "calse", "clace",
+                       "calze", "kalce", "talle", "talla", "taye"}
     _toks_attr = [w for w in busqueda.tokenizar(mensaje)
                   if w not in busqueda.STOP]
     _atributo = bool(historial and _toks_attr and all(
         w.isdigit() or w in _COLORES or busqueda.singular(w) in _COLORES
+        or w in _TALLE_PALABRAS
         for w in _toks_attr))
     if _atributo:
         contexto += (
@@ -537,8 +540,15 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
         w in (historial[-1].get("agente") or "").lower()
         for w in ("vendedor", "asesor", "te paso con", "te derivo"))
     eligio = False
-    if _afirma and _ofrecio_vendedor:
+    if _ya_derivado:
+        # ya tiene su vendedor asignado: si ahora da el talle/color, se
+        # confirma y se le avisa que el vendedor le escribe con eso — no se
+        # vuelve a derivar (quedaba repitiendo el enlace).
+        pass
+    elif _afirma and _ofrecio_vendedor:
         eligio = True
+    elif _ya_derivado:
+        pass
     elif sku and ("hacer un pedido" in _msg_n
                 or await catalogo_chico.categoria_de(sku)):
         eligio = True
@@ -550,10 +560,6 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                         _msg_n) and historial):
         eligio = True   # "42", "el 40", "41 o 39" respondiendo al talle
     if eligio:
-        if not sku:
-            sugeridos = [s for s in sugeridos
-                         if _re.search(r"[a-z]{4,}",
-                                       busqueda.normalizar(mensaje))] and sugeridos or []
         contexto += (
             "ELECCIÓN CONCRETADA: el cliente YA eligió (producto y/o calce). "
             "PROHIBIDO ofrecer el catálogo, más opciones o links: confirmá su "
