@@ -108,6 +108,53 @@ async def _web_tiene_resultados(term: str) -> bool:
     return ok
 
 
+def _verificar_precios(texto: str, sugeridos) -> str:
+    """Coteja cada línea "PRODUCTO — precio gs" contra los candidatos REALES.
+    La IA llegó a ponerle nombre IRUN a precios de otros productos (444.000 en
+    vez de 116.000). Acá: precio que no corresponde al nombre -> se reescribe
+    la línea con el nombre y precio REALES del candidato; nombre que no matchea
+    ningún candidato -> la línea se borra."""
+    if not sugeridos:
+        return texto
+    cands = []
+    for s in sugeridos:
+        toks = set(busqueda.tokenizar(s.get("nombre", ""))) - busqueda.STOP
+        cands.append((toks, s))
+    out = []
+    for ln in texto.splitlines():
+        m = _re.search(r"^(\s*(?:[-•*]|\d+[.)])?\s*)(.{3,70}?)\s*[—–-]\s*"
+                       r"([\d][\d.,]{2,})\s*gs\b", ln, _re.IGNORECASE)
+        if not m:
+            out.append(ln)
+            continue
+        pref, nombre_l, precio_l = m.group(1), m.group(2), m.group(3)
+        toks_l = set(busqueda.tokenizar(nombre_l)) - busqueda.STOP
+        digitos_l = _re.sub(r"\D", "", precio_l)
+        # ¿algún candidato con ese nombre Y ese precio? -> línea correcta
+        ok = False
+        mejor, mejor_sc = None, 0.0
+        for toks_c, s in cands:
+            if not toks_l or not toks_c:
+                continue
+            sc = len(toks_l & toks_c) / max(1, len(toks_l))
+            if sc > mejor_sc:
+                mejor, mejor_sc = s, sc
+            if sc >= 0.5 and _re.sub(r"\D", "", productos.precio_texto(s)) == digitos_l:
+                ok = True
+                break
+        if ok:
+            out.append(ln)
+        elif mejor is not None and mejor_sc >= 0.5:
+            out.append(f"{pref}*{mejor['nombre']}* — {productos.precio_texto(mejor)}")
+            print(f"[PRECIO-FIX] {nombre_l[:30]!r} {precio_l} -> "
+                  f"{mejor['nombre'][:30]!r} {productos.precio_texto(mejor)}",
+                  flush=True)
+        else:
+            print(f"[PRECIO-FIX] línea sin candidato real, borrada: "
+                  f"{ln[:60]!r}", flush=True)
+    return "\n".join(out).replace("**", "*")
+
+
 AUDIO_MSG = (
     "¡Hola! 🎧 Me llegó tu audio, pero por acá no puedo escucharlos. "
     "¿Me lo escribís en un mensajito, por favor? Así te atiendo mejor. "
@@ -645,6 +692,7 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                 permitidos += (link_web,)
             derivar = "[DERIVAR]" in texto or eligio
             texto = _limpiar_salida(texto.replace("[DERIVAR]", ""), permitidos)
+            texto = _verificar_precios(texto, sugeridos)
             # ANTI-INVENCIÓN: si NO hubo candidatos reales ni foto, y la
             # respuesta trae una lista de productos con precios, es fabricada
             # (pasó: fajas y boxers con precios que no existen). Se reemplaza
