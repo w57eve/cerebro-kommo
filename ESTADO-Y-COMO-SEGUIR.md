@@ -306,3 +306,8 @@ Nombres EXACTOS o se leen vacías.
 - Productos sin foto: a_texto marca "SIN FOTO en el sistema" + regla en el prompt: si piden foto de uno así, decir que la pasa el vendedor; nunca inventar link. +1 test.
 - Suite completa OK. Falta: actualizar_github.bat (incluye también el fix pide-fotos).
 - PENDIENTE (urgente, decidido con el dueño): aprendizaje persistente — el registro se borra en cada deploy de Render. Propuesta: token de GitHub en Render y aprendizaje.py sube JSONL diario al repo; el monitoreo lo analiza y convierte en sinónimos/reglas/conocimiento.
+
+## Aprendizaje persistente en GitHub 29/08/2026
+- aprendizaje.py ahora sube los intercambios en tandas (cada 10 mensajes o 10 min) a la rama "aprendizaje" del repo, archivo datos/aprendizaje/AAAA-MM-DD.jsonl. Rama separada: los push de código a main no chocan y Render no redespliega por datos. Tope 500 pendientes si GitHub falla; reintenta solo. /aprendizaje muestra bloque "github" (activo, pendientes, ultimo_envio, ultimo_error) para el monitoreo.
+- FALTA DEL DUEÑO: 1) crear token fine-grained en GitHub (solo repo cerebro-kommo, permiso Contents: Read and write), 2) en Render → Environment agregar GITHUB_TOKEN=<token>, 3) doble clic actualizar_github.bat.
+- Ciclo de aprendizaje: el monitoreo nocturno lee esos JSONL → consultas sin candidatos → sinónimos; fallbacks → reglas; respuestas del vendedor post-derivación → conocimiento. Cada mejora entra con test.

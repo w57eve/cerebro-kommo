@@ -191,6 +191,44 @@ async def correr():
     v1b = vendedores.mensaje_derivacion(consulta="y", lead_id="eqA")["vendedor"]
     check("rotacion equitativa + pegajosa (28/08)", v1 != v2 and v1 == v1b)
 
+    # ── APRENDIZAJE PERSISTENTE EN GITHUB (29/08) ──
+    import base64 as _b64
+    import os as _os
+
+    from app import aprendizaje as _ap
+
+    class _Resp:
+        def __init__(self, st, js=None):
+            self.status_code, self._js = st, js or {}
+        def json(self):
+            return self._js
+
+    class _GHFake:   # simula la API de GitHub: rama existe, archivo con 1 línea
+        def __init__(self):
+            self.subido = None
+        def get(self, url, **kw):
+            if "/git/ref/" in url:
+                return _Resp(200, {"object": {"sha": "abc"}})
+            previo = _b64.b64encode("{\"viejo\": 1}\n".encode()).decode()
+            return _Resp(200, {"sha": "f1", "content": previo})
+        def put(self, url, **kw):
+            self.subido = _b64.b64decode(kw["json"]["content"]).decode()
+            return _Resp(200)
+        def post(self, url, **kw):
+            return _Resp(201)
+
+    _os.environ.pop("GITHUB_TOKEN", None)
+    _ap.registrar("L1", "hola", "buenas", False, 3)
+    check("aprendizaje sin token no explota y encola (29/08)",
+          _ap.subir_ahora() == "sin GITHUB_TOKEN" and len(_ap._pendientes) >= 1)
+    _os.environ["GITHUB_TOKEN"] = "tok-test"
+    fake = _GHFake()
+    err = _ap.subir_ahora(cli=fake)
+    check("aprendizaje sube a github preservando lo previo (29/08)",
+          err == "" and fake.subido and fake.subido.startswith("{\"viejo\": 1}")
+          and '"hola"' in fake.subido and len(_ap._pendientes) == 0)
+    _os.environ.pop("GITHUB_TOKEN", None)
+
     print()
     if FALLOS:
         print(f"❌ {len(FALLOS)} REGRESIONES: {FALLOS}")
