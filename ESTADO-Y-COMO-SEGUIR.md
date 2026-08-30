@@ -363,3 +363,7 @@ Nombres EXACTOS o se leen vacías.
 - Link del local verificado en vivo (abre "Shopping Asia", Av. Eusebio Ayala 1451): https://www.google.com/maps/place/Shopping+Asia/data=!4m2!3m1!1s0x0:0x8209184b8f599d4a
 - Agregado a: regla 0-tokens de ubicación (con keywords nuevas: donde queda, como llegar, mapa...), links permitidos en _limpiar_salida, y base-conocimiento.md (copia del repo y la maestra). 5 tests. Suite 72/72.
 - Falta: actualizar_github.bat.
+
+## Monitoreo 30/08/2026 (corrida automática)
+Suite 72/72 ok antes de tocar nada; catálogo 49.536 productos, fetch 200. 196 mensajes, 0% fallback, 9% derivación. Ajusté _CALZADO_TOKENS en app/agente.py: +"horma/orma" ("Orma grande" traía maletas y cubiteras) y +"correr/running" ("para correr en pistas" traía CORREAS); agregué sus 2 tests (suite ahora 74/74). Falta doble clic a actualizar_github.bat.
+Pendientes detectados sin tocar: "taller 42" (typo de talle) respondió con llaves de tubo; texto unicode decorado (𝕔𝕒𝕝𝕫𝕒𝕕𝕠𝕤) no se normaliza (probar NFKD en _quita_tildes); saludo de pauta "más información" a veces busca "mas" y manda buscador?q=mas.

@@ -802,7 +802,10 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                        # typos frecuentes de celular (letras vecinas / s-c-z)
                        "fitsal", "futzal", "fusal", "chanpion", "champio",
                        "sapatilla", "zapato", "sapato", "calsado", "calzada",
-                       "grasep", "graseep", "grassep", "gracep"}
+                       "grasep", "graseep", "grassep", "gracep",
+                       # 30/08: "Orma grande" (horma) le trajo maletas y
+                       # cubiteras; "para correr en pistas" le trajo CORREAS
+                       "horma", "orma", "correr", "running"}
     _msg_n = busqueda.normalizar(mensaje)
     _toks = set(busqueda.tokenizar(mensaje))
     pauta_term = ("calzado" if (_toks & _CALZADO_TOKENS

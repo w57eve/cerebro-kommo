@@ -323,6 +323,14 @@ async def correr():
     check("'todos terrenos' plural es jerga de pauta (29/08 Misael)",
           "CONSULTA DE CALZADO" in CTX["ctx"]
           and "Acrobático" not in CTX["ctx"])
+    # 30/08: "Orma grande" (typo de horma) trajo maletas/cubiteras; y
+    # "para correr en pistas" trajo CORREAS. Ambos van por regla de calzados.
+    await agente.procesar("Orma grande")
+    check("'orma grande' (horma) va por regla de calzados (30/08)",
+          "CONSULTA DE CALZADO" in CTX["ctx"])
+    await agente.procesar("Para correr en pistas que marcas tenes")
+    check("'para correr en pistas' es calzado, no correas (30/08 Luis)",
+          "CONSULTA DE CALZADO" in CTX["ctx"])
     preparar()
 
     # ── ANTI-INVENCIÓN (29/08 fajas a quien miraba botines) ──
