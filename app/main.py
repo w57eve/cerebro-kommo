@@ -457,10 +457,15 @@ async def foto_sku(sku: str):
     from fastapi.responses import Response
     from . import productos as _prod
 
+    import time as _time
     sku = "".join(c for c in sku if c.isalnum())[:20]
-    if sku in _fotos_cache:
-        return Response(content=_fotos_cache[sku], media_type="image/jpeg",
+    v = _fotos_cache.get(sku)
+    if isinstance(v, bytes):
+        return Response(content=v, media_type="image/jpeg",
                         headers={"Cache-Control": "public, max-age=86400"})
+    if isinstance(v, float):          # caché NEGATIVO: falló hace poco
+        if _time.time() - v < 600:    # (sin esto, cada intento re-esperaba
+            return JSONResponse({"error": "sin foto"}, status_code=404)
     it = await _prod.por_sku(sku)
     url = (it or {}).get("imagenes") and it["imagenes"][0] or ""
     # Fuentes en orden: storage de la web y, si falla (30/08: el VPS de la
@@ -480,7 +485,9 @@ async def foto_sku(sku: str):
     from PIL import Image
     for fuente in fuentes:
         try:
-            async with _httpx.AsyncClient(timeout=25) as cli:
+            # timeout corto: con la web caída, 25s x fuente dejaba la página
+            # /l "colgada" con huecos blancos (30/08)
+            async with _httpx.AsyncClient(timeout=6) as cli:
                 r = await cli.get(fuente, headers={"User-Agent": "cerebro"})
                 r.raise_for_status()
             img = Image.open(io.BytesIO(r.content)).convert("RGB")
@@ -495,6 +502,10 @@ async def foto_sku(sku: str):
                             headers={"Cache-Control": "public, max-age=86400"})
         except Exception as e:
             print(f"[FOTO] {fuente[:60]} sku={sku}: {e}", flush=True)
+    import time as _t2
+    if len(_fotos_cache) > 800:
+        _fotos_cache.clear()
+    _fotos_cache[sku] = _t2.time()    # caché negativo 10 min
     return JSONResponse({"error": "sin foto"}, status_code=404)
 
 

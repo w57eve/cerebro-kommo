@@ -43,6 +43,9 @@ STOP = {
     # (a Brenda le taparon las maletas unas chanclas por talla — 29/08)
     "tall", "talll", "quetal", "qtal", "buenass", "holaa", "holaaa",
     "disponen", "dispone", "disponible", "disponibles",
+    # 30/08 Marta: "Solo ropa y laCama" trajo carteles "PROHIBIDO EL PASO
+    # SOLO PERSONAL"; "Xg" solto se volvio pañales talle XG
+    "solo", "solos", "sola", "solas", "solamente", "nomas", "xg", "xq", "xf",
     # "Podés pasar porfa" matcheaba PODS (ofreció vapes a Gustavo — 29/08)
     "podes", "podrias", "puedes", "puede", "podras", "pasame", "pasar",
     "pasas", "pasan", "foto", "fotos", "imagen", "imagenes",
