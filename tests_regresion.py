@@ -219,7 +219,7 @@ async def correr():
           "116.000" in out)
 
     # ── MODELOS DISTINTOS MISMO NOMBRE: una mención + link, sin repetir ──
-    _dups = [{"sku": str(i), "nombre": "CALZADO IRUN 38-43", "precio": 122000,
+    _dups = [{"sku": str(i), "nombre": "TERMO ACERO 1L", "precio": 122000,
               "imagenes": []} for i in range(3)]
     productos._instalar(_dups + [{"sku": "9", "nombre": "GUANTE",
                                   "precio": 20000, "imagenes": []}])
@@ -227,11 +227,15 @@ async def correr():
         return 3
     agente._web_conteo = _web_3
     _llm_capturador()
-    await agente.procesar("calzado irun")
+    await agente.procesar("termo acero")
     check("nombres duplicados: contexto sin repetidos + manda link (29/08)",
-          CTX["ctx"].count("CALZADO IRUN 38-43") == 1
+          CTX["ctx"].count("TERMO ACERO 1L") == 1
           and "MODELOS DISTINTOS" in CTX["ctx"]
           and "buscador?q=" in CTX["ctx"])
+    # calzado por familia: la regla nueva (30/08) manda catálogo rápido, sin lista
+    await agente.procesar("calzado irun")
+    check("calzado por familia sin lista de candidatos (30/08)",
+          sum(1 for l in CTX["ctx"].splitlines() if l.startswith("- SKU")) == 0)
     agente._web_conteo = web_off
     preparar()   # restaurar catálogo real para lo que siga
 
@@ -439,6 +443,48 @@ async def correr():
                   for c in _cands))
     _r = await agente.procesar("calce 42", historial=h_yeni, lead_id="t-yeni2")
     check("calce real del cliente sigue derivando (30/08)", _r.get("derivar"))
+
+    # ── CALZADO POR FAMILIA: solo catálogo rápido, sin precios web ni /l
+    # (30/08: a un cliente le listó IRUN con precio web desfasado y fotos
+    # rotas en vez del catálogo chico) ──
+    await agente.procesar("Tienen grasep?", historial=[], lead_id="t-gra")
+    check("grasep: sin lista de candidatos ni precios web (30/08)",
+          sum(1 for l in CTX["ctx"].splitlines() if l.startswith("- SKU")) == 0
+          and "desfasados" in CTX["ctx"])
+    check("grasep: sin link de lista /l (30/08)",
+          "onrender.com/l/" not in CTX["ctx"])
+    # arnés: rubro normal con 98 productos; el buscador debe traerlos
+    await agente.procesar("Tienen arnés para perros?", historial=[],
+                          lead_id="t-arn")
+    check("arnes trae arneses (30/08)",
+          any("ARNES" in l.upper() for l in CTX["ctx"].splitlines()
+              if l.startswith("- SKU")))
+
+    # ── SONDEO 30/08 (tarde): typos de autocorrector de champion, "Foto"
+    # a secas, y términos META en el link del buscador ──
+    for _q in ["Shampiones todo terreno", "Champiñones para correr en Asfalto",
+               "Puede enviarme catalogo de los champagne con su precio",
+               "Chuteira Grazep pra sintético", "Shampio m"]:
+        await agente.procesar(_q, historial=[], lead_id="t-typo")
+        check(f"typo de champion va por regla calzado (30/08): {_q[:28]!r}",
+              sum(1 for l in CTX["ctx"].splitlines()
+                  if l.startswith("- SKU")) == 0)
+    await agente.procesar("copas de champagne tienen?", historial=[],
+                          lead_id="t-copa")
+    check("copas de champagne siguen siendo copas (30/08)",
+          any("COPA" in l.upper() for l in CTX["ctx"].splitlines()
+              if l.startswith("- SKU")))
+    h_gus = [{"cliente": "Champions combos", "agente": "catalogo rapido..."}]
+    for _q in ["Foto", "Podés pasar porfa\nFoto", "Foto pará eligir porfa",
+               "Imágenes"]:
+        await agente.procesar(_q, historial=h_gus, lead_id="t-gus")
+        check(f"'{_q[:22]}' pide fotos del hilo (30/08 Gustavo)",
+              "pide FOTOS de lo que YA" in CTX["ctx"])
+    _idx2 = productos.indice_actual()
+    check("termino_web sin palabras META (30/08 Marta q=foto)",
+          "foto" not in _idx2.termino_web(
+              "La foto de juguetes de princesas me pueden pasar")
+          and _idx2.termino_web("Este ceria") != "est")
 
     # ── UN SOLO LINK CON OPCIONES /l/<skus> (30/08: web caída, fotos del
     # espejo del depósito en precios.*) ──

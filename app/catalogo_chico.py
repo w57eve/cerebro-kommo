@@ -16,7 +16,7 @@ import httpx
 URL = os.getenv("CATALOGO_CHICO_URL",
                 "https://catalogo.shoppingasia.com.py/datos/catalogo.json")
 
-_cache = {"ts": 0.0, "por_sku": {}, "categorias": []}
+_cache = {"ts": 0.0, "por_sku": {}, "categorias": [], "foto_sku": {}}
 
 
 async def _asegurar():
@@ -27,7 +27,8 @@ async def _asegurar():
             r = await cli.get(URL, headers={"User-Agent": "cerebro"})
             r.raise_for_status()
             j = r.json()
-        por_sku, cats = {}, []
+        por_sku, cats, foto_sku = {}, [], {}
+        base = URL.rsplit("/datos/", 1)[0]
         for cat in j.get("categorias", []):
             nombre = (cat.get("nombre") or "").strip()
             if nombre:
@@ -36,8 +37,13 @@ async def _asegurar():
                 sku = str(it.get("sku") or "").strip()
                 if sku:
                     por_sku.setdefault(sku, nombre)
+                    ruta = it.get("full") or it.get("thumb") or ""
+                    if ruta:
+                        from urllib.parse import quote as _q
+                        foto_sku.setdefault(sku, f"{base}/{_q(ruta)}")
         if por_sku:
-            _cache.update(ts=time.time(), por_sku=por_sku, categorias=cats)
+            _cache.update(ts=time.time(), por_sku=por_sku, categorias=cats,
+                          foto_sku=foto_sku)
             print(f"[CHICO] catálogo rápido: {len(por_sku)} SKUs en "
                   f"{len(cats)} categorías: {', '.join(cats)}", flush=True)
     except Exception as e:
@@ -58,3 +64,10 @@ async def categorias() -> list:
 
 def cantidad() -> int:
     return len(_cache["por_sku"])
+
+
+async def foto_de(sku) -> str:
+    """URL de la foto del SKU en el catálogo rápido (Cloudflare, siempre
+    vivo), o "". Fuente de respaldo para /foto cuando la web está caída."""
+    await _asegurar()
+    return _cache.get("foto_sku", {}).get(str(sku or "").strip(), "")

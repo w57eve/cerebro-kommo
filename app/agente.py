@@ -654,6 +654,10 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
         "opciones", "modelos", "productos", "articulos", "esos", "esas",
         "estos", "estas", "ese", "esa", "este", "otra", "otro", "vez",
         "porfa", "favor", "por", "si", "dale", "hola", "buenas",
+        # 30/08 Gustavo: "Podés pasar porfa\nFoto" buscó pods (nicotina!) y
+        # "Foto pará eligir porfa" buscó álbumes de fotos
+        "para", "elegir", "eligir", "porfavor", "xfa", "pf", "porfis",
+        "gracias", "que", "tengas", "tenga", "aca", "ahi",
     }
     _toks_foto = set(_re.findall(r"[a-z]+", busqueda.normalizar(mensaje)))
     _pide_fotos = bool(
@@ -717,6 +721,29 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     _jerga_pauta = bool(_re.search(
         r"todos?\s+(los\s+)?terrenos?|todoterrenos?", _msg_norm))
 
+    # LO QUE DIJO EL CLIENTE, sin la descripción de la visión: "(foto del
+    # cliente: ...)" es texto NUESTRO. Si entra a las detecciones pasa esto
+    # (30/08 Yeni): "talla 38-43" de la descripción disparó "dio su calce ->
+    # derivar", y "cliente" el corrector lo volvió "caliente" -> POSA CALIENTE.
+    _texto_cli = _re.sub(r"\(foto del cliente:.*?\)", " ", mensaje,
+                         flags=_re.S).strip()
+
+    _CALZADO_TOKENS = {"champion", "champione", "zapatilla", "teni", "calzado",
+                       "botin", "chutera", "taquilla", "futsal", "futbol",
+                       "deportivo", "irun",
+                       # typos frecuentes de celular (letras vecinas / s-c-z)
+                       "fitsal", "futzal", "fusal", "chanpion", "champio",
+                       "sapatilla", "zapato", "sapato", "calsado", "calzada",
+                       "grasep", "graseep", "grassep", "gracep", "graset",
+                       "grazep", "chuteira", "knup", "diadora",
+                       # autocorrector del celular (sondeo 30/08): shampiones,
+                       # champiñones, champagne (si no piden copas/vasos)
+                       "shampion", "shampione", "shampio", "champinon",
+                       "champinone", "champiñon", "champiñone",
+                       # 30/08: "Orma grande" (horma) le trajo maletas y
+                       # cubiteras; "para correr en pistas" le trajo CORREAS
+                       "horma", "orma", "correr", "running"}
+
     sugeridos = []
     sku = productos.extraer_sku(mensaje)
     if sku:
@@ -765,7 +792,28 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                    else []))
         cand = await productos.buscar(_fuente, limite=5)
         sugeridos = cand
-        if len(cand) == 1:
+        # CONSULTA DE CALZADO POR FAMILIA (champion/grasep/futsal/etc., sin
+        # SKU): acá mandan el catálogo rápido y SUS precios de flyer — los
+        # precios/fotos de la web para estos calzados están desfasados (30/08:
+        # a un cliente le listó IRUN con precio web y fotos rotas en vez del
+        # catálogo). Candidatos solo de referencia interna, sin foto ni precio.
+        # (solo sobre el texto REAL del cliente: si mandó la FOTO de un
+        # producto concreto, la descripción de la visión sí necesita
+        # candidatos para identificarlo — caso Yeni)
+        _tk_cli = set(busqueda.tokenizar(_texto_cli))
+        # "champagne" es typo/autocorrección de champion SALVO que pidan copas
+        if "champagne" in _tk_cli and not _tk_cli & {"copa", "vaso", "brindis"}:
+            _tk_cli.add("champion")
+        _calzado_fam = bool(
+            _tk_cli & _CALZADO_TOKENS
+            and not sku and "(foto del cliente:" not in mensaje)
+        if _calzado_fam and cand:
+            contexto += (
+                "Es consulta de CALZADOS por familia: NO menciones precios ni "
+                "fotos ni listas de modelos (los precios vigentes están en el "
+                "catálogo rápido, los de acá pueden estar desfasados). "
+                "Respondé SOLO con la regla fija de calzados.\n")
+        elif len(cand) == 1:
             contexto += "Posible producto (confirmá con el cliente):\n" + await _linea(cand[0]) + "\n"
         elif len(cand) > 1:
             contexto += (
@@ -815,24 +863,10 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     # página o directa — se responde con el CATÁLOGO CHICO primero y el link
     # de la web con "más opciones" después. Los modelos pautados viven en el
     # catálogo chico (en el grande/web muchos ni aparecen con ese nombre).
-    _CALZADO_TOKENS = {"champion", "champione", "zapatilla", "teni", "calzado",
-                       "botin", "chutera", "taquilla", "futsal", "futbol",
-                       "deportivo", "irun",
-                       # typos frecuentes de celular (letras vecinas / s-c-z)
-                       "fitsal", "futzal", "fusal", "chanpion", "champio",
-                       "sapatilla", "zapato", "sapato", "calsado", "calzada",
-                       "grasep", "graseep", "grassep", "gracep",
-                       # 30/08: "Orma grande" (horma) le trajo maletas y
-                       # cubiteras; "para correr en pistas" le trajo CORREAS
-                       "horma", "orma", "correr", "running"}
-    # LO QUE DIJO EL CLIENTE, sin la descripción de la visión: "(foto del
-    # cliente: ...)" es texto NUESTRO. Si entra a las detecciones pasa esto
-    # (30/08 Yeni): "talla 38-43" de la descripción disparó "dio su calce ->
-    # derivar", y "cliente" el corrector lo volvió "caliente" -> POSA CALIENTE.
-    _texto_cli = _re.sub(r"\(foto del cliente:.*?\)", " ", mensaje,
-                         flags=_re.S).strip()
     _msg_n = busqueda.normalizar(_texto_cli)
     _toks = set(busqueda.tokenizar(mensaje))
+    if "champagne" in _toks and not _toks & {"copa", "copas", "vaso", "vasos", "brindis"}:
+        _toks = _toks | {"champion"}   # autocorrector: champagne = champion
     pauta_term = ("calzado" if (_toks & _CALZADO_TOKENS
                                 or _re.search(r"todos?\s+(los\s+)?terrenos?"
                                               r"|todoterrenos?", _msg_n))
@@ -964,7 +998,8 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     # del espejo del depósito en precios.*). El server arma el link: la IA
     # jamás lo inventa.
     link_lista = ""
-    if len(sugeridos) >= 2 and not eligio and not _ya_derivado:
+    if (len(sugeridos) >= 2 and not eligio and not _ya_derivado
+            and not pauta_term):   # calzados: manda el catálogo rápido
         _skus_l = [str(s.get("sku")) for s in sugeridos[:6] if s.get("sku")]
         if len(_skus_l) >= 2:
             link_lista = ("https://cerebro-kommo.onrender.com/l/"

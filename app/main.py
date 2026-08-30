@@ -468,8 +468,10 @@ async def foto_sku(sku: str):
     # VPS): fotos del depósito en precios.* y el espejo COMPLETO del repo
     # "fotos" (~24.500 miniaturas, se publica con respaldo-fotos-github).
     # Los espejos también cubren SKUs que en la web no tienen foto.
+    from . import catalogo_chico as _chico
     fuentes = [u for u in (
         url,
+        await _chico.foto_de(sku),   # calzados del catálogo rápido (Cloudflare)
         f"https://precios.shoppingasia.com.py/fotos_sku/{sku}.jpg",
         f"https://w57eve.github.io/fotos/{sku}.jpg") if u]
     import io

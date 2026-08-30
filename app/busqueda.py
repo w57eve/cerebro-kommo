@@ -178,13 +178,20 @@ def _pares(texto):
     return [(w, singular(w)) for w in crudos if len(w) >= 2]
 
 
+# Palabras META de la charla: nunca sirven como término del buscador de la
+# web (30/08: links rotos "?q=foto" por "la foto de juguetes..." y "?q=est").
+_META = {"foto", "fotos", "imagen", "imagene", "imagen", "fotografia",
+         "este", "esta", "ese", "esa", "est", "aquel", "opcion", "opcione",
+         "modelo", "informacion", "info", "precio"}
+
+
 def termino_web(texto: str) -> str:
     """Término limpio para el buscador de la web: sin saludos/ruido, con la
     jerga mapeada (championes -> calzado). Emite PALABRAS REALES (la original
     del cliente), no tokens singularizados truncados ('guantes' -> 'guant')."""
     vistos, out = set(), []
     for w0, w in _pares(texto):
-        if w in STOP or w0 in STOP or w.isdigit():
+        if w in STOP or w0 in STOP or w.isdigit() or w in _META:
             continue
         c = _WEB_CANON.get(w, w0)
         if c not in vistos:
@@ -278,7 +285,7 @@ class Indice:
         la corrección completa), nunca tokens truncados ('guant')."""
         out, vistos = [], set()
         for w0, w in _pares(texto):
-            if w in STOP or w0 in STOP or w.isdigit():
+            if w in STOP or w0 in STOP or w.isdigit() or w in _META:
                 continue
             canon = _WEB_CANON.get(w)
             if canon:
