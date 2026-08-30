@@ -132,6 +132,20 @@ async def correr():
           and "SIN FOTO" not in productos.a_texto(
               {"sku": "2", "nombre": "X", "precio": 1000,
                "imagenes": ["https://www.shoppingasia.com.py/storage/sku/x.jpg"]}))
+    # Refinamiento corto sigue el hilo (30/08 Roux: "bebé" -> "Ropa" buscó
+    # "ropa" a secas y ofreció ropa de adultos)
+    h_bebe = [{"cliente": "Quiero ver productos de bebé",
+               "agente": "tenemos ositos, baberos..."}]
+    await agente.procesar("Ropa", historial=h_bebe)
+    _cands = [l for l in CTX["ctx"].splitlines() if l.startswith("- SKU")]
+    check("refinamiento corto sigue el hilo (30/08 Roux)",
+          "continuación" in CTX["ctx"]
+          and sum(1 for c in _cands if "BEB" in c.upper()) >= 2)
+    await agente.procesar("tienen cafetera electrica de 220 voltios?",
+                          historial=h_bebe)
+    _cands = [l for l in CTX["ctx"].splitlines() if l.startswith("- SKU")]
+    check("consulta larga es tema nuevo (30/08)",
+          any("CAFETERA" in c.upper() for c in _cands))
     h164 = [{"cliente": "championes?", "agente": "Opciones:\n*CALZADO IRUN 40-44* — 164.000 gs"}]
     await agente.procesar("el de 164", historial=h164)
     check("'el de 164' referencia a la lista (29/08)", "coincide con un PRECIO" in CTX["ctx"])

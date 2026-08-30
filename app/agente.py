@@ -735,15 +735,30 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
         pass   # pregunta por lo nuevo: la búsqueda literal solo mete ruido
     else:
         _fuente = mensaje
+        # REGLA GENERAL: mensaje corto (<=3 palabras útiles) en una charla es
+        # CONTINUACIÓN del hilo ("Ropa", "Calzados"), no una consulta aislada
+        # (caso Roux 30/08: pidió bebé -> "Ropa" y buscó "ropa" a secas).
+        _corto = len(_toks_attr) <= 3
+        if (_corto and historial
+                and not (_acepta_oferta or _ya_derivado or _atributo
+                         or _pide_fotos or _pide_continuar)):
+            contexto += (
+                "El mensaje del cliente es CORTO: es una continuación o "
+                "refinamiento del hilo (mirá la conversación previa), no un "
+                "tema nuevo. Los candidatos ya combinan hilo + mensaje. "
+                "Respondé DENTRO del tema que venían hablando.\n")
         if (_acepta_oferta or _ya_derivado or _atributo or _pide_fotos
-                or _pide_continuar) and historial:
-            # el HILO completo reciente: lo que pidió el cliente + lo ofrecido
-            # (si pide fotos/continuar, el mensaje actual NO entra: sus
-            # palabras genéricas solo meten ruido)
+                or _pide_continuar or _corto) and historial:
+            # HILO reciente: mensaje actual PRIMERO (sustantivo que manda) +
+            # lo que venía pidiendo el CLIENTE. El texto del bot solo cuando
+            # el cliente refiere a la oferta del bot (acepta/fotos/continuar);
+            # si no, mete ruido (ositos/baberos en el caso Roux).
             _fuente = " ".join(
-                [h.get("cliente", "") for h in list(historial)[-3:]]
-                + [(historial[-1].get("agente") or "")[:200]]
-                + ([] if (_pide_fotos or _pide_continuar) else [mensaje]))
+                ([] if (_pide_fotos or _pide_continuar) else [mensaje])
+                + [h.get("cliente", "") for h in list(historial)[-3:]]
+                + ([(historial[-1].get("agente") or "")[:200]]
+                   if (_acepta_oferta or _pide_fotos or _pide_continuar)
+                   else []))
         cand = await productos.buscar(_fuente, limite=5)
         sugeridos = cand
         if len(cand) == 1:
