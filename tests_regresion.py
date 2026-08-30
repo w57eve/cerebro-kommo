@@ -422,6 +422,24 @@ async def correr():
           _ap.cargar_memoria() == {})
 
     print()
+    # ── FOTO DEL CLIENTE: la descripción de la visión NO es texto del
+    # cliente (30/08 Yeni: "talla 38-43" disparó derivación y "cliente" se
+    # corrigió a "caliente" -> lista de POSA CALIENTE) ──
+    h_yeni = [{"cliente": "De Champions",
+               "agente": "calzados Champions... catalogo"}]
+    _r = await agente.procesar(
+        "(foto del cliente: Zapatilla deportiva Champion KNUP beige/gris, "
+        "talla 38-43, 122.000 Gs.)", historial=h_yeni, lead_id="t-yeni")
+    _cands = [l for l in CTX["ctx"].splitlines() if l.startswith("- SKU")]
+    check("vision no deriva por 'talla 38-43' (30/08 Yeni)",
+          not _r.get("derivar"))
+    check("vision no busca 'cliente'->'caliente' (30/08 Yeni)",
+          not any("CALIENTE" in c.upper() for c in _cands)
+          and any("ZAPATILLA" in c.upper() or "CALZADO" in c.upper()
+                  for c in _cands))
+    _r = await agente.procesar("calce 42", historial=h_yeni, lead_id="t-yeni2")
+    check("calce real del cliente sigue derivando (30/08)", _r.get("derivar"))
+
     # ── UN SOLO LINK CON OPCIONES /l/<skus> (30/08: web caída, fotos del
     # espejo del depósito en precios.*) ──
     await agente.procesar("tienen mochilas?", historial=[])

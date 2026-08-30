@@ -734,7 +734,11 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     elif _pide_novedades:
         pass   # pregunta por lo nuevo: la búsqueda literal solo mete ruido
     else:
-        _fuente = mensaje
+        # Para BUSCAR se saca el marcador "(foto del cliente:" — sus palabras
+        # no son del cliente y el corrector convierte "cliente" en "caliente"
+        # (30/08 Yeni: foto de zapatilla -> lista de POSA CALIENTE).
+        _msj_b = _re.sub(r"\(foto del cliente:\s*", " ", mensaje)
+        _fuente = _msj_b
         # REGLA GENERAL: mensaje corto (<=3 palabras útiles) en una charla es
         # CONTINUACIÓN del hilo ("Ropa", "Calzados"), no una consulta aislada
         # (caso Roux 30/08: pidió bebé -> "Ropa" y buscó "ropa" a secas).
@@ -754,7 +758,7 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             # el cliente refiere a la oferta del bot (acepta/fotos/continuar);
             # si no, mete ruido (ositos/baberos en el caso Roux).
             _fuente = " ".join(
-                ([] if (_pide_fotos or _pide_continuar) else [mensaje])
+                ([] if (_pide_fotos or _pide_continuar) else [_msj_b])
                 + [h.get("cliente", "") for h in list(historial)[-3:]]
                 + ([(historial[-1].get("agente") or "")[:200]]
                    if (_acepta_oferta or _pide_fotos or _pide_continuar)
@@ -821,7 +825,13 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                        # 30/08: "Orma grande" (horma) le trajo maletas y
                        # cubiteras; "para correr en pistas" le trajo CORREAS
                        "horma", "orma", "correr", "running"}
-    _msg_n = busqueda.normalizar(mensaje)
+    # LO QUE DIJO EL CLIENTE, sin la descripción de la visión: "(foto del
+    # cliente: ...)" es texto NUESTRO. Si entra a las detecciones pasa esto
+    # (30/08 Yeni): "talla 38-43" de la descripción disparó "dio su calce ->
+    # derivar", y "cliente" el corrector lo volvió "caliente" -> POSA CALIENTE.
+    _texto_cli = _re.sub(r"\(foto del cliente:.*?\)", " ", mensaje,
+                         flags=_re.S).strip()
+    _msg_n = busqueda.normalizar(_texto_cli)
     _toks = set(busqueda.tokenizar(mensaje))
     pauta_term = ("calzado" if (_toks & _CALZADO_TOKENS
                                 or _re.search(r"todos?\s+(los\s+)?terrenos?"
@@ -855,8 +865,11 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                 or await catalogo_chico.categoria_de(sku)):
         eligio = True
     elif (_re.search(r"\b(calce|calse|clace|calze|kalce|clase|talle|talla"
-                     r"|taye|numero|nro|n)\s*:?\s*\d{2}\b", _msg_n)
+                     r"|taye|numero|nro|n)\s*:?\s*\d{2}\b(?!\s*[-–/]\s*\d)",
+                     _msg_n)
           and (historial or sugeridos or pauta_term)):
+        # (el (?!...) evita rangos "talla 38-43": eso es el rango de un
+        # producto citado, no el calce elegido por el cliente)
         eligio = True
     elif (_re.fullmatch(r"\s*(?:el\s+)?\d{2}(?:\s*(?:o|y|,|/)\s*\d{2})*\s*",
                         _msg_n) and historial):
