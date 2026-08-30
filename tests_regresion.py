@@ -422,6 +422,32 @@ async def correr():
           _ap.cargar_memoria() == {})
 
     print()
+    # ── UN SOLO LINK CON OPCIONES /l/<skus> (30/08: web caída, fotos del
+    # espejo del depósito en precios.*) ──
+    await agente.procesar("tienen mochilas?", historial=[])
+    import re as _re2
+    _m = _re2.search(r"https://cerebro-kommo\.onrender\.com/l/[\d,]+", CTX["ctx"])
+    check("link de lista /l con candidatos reales (30/08)", bool(_m))
+    if _m:
+        _l = _m.group()
+        check("lista: link autorizado pasa la limpieza (30/08)",
+              _l in _limpiar_salida(f"Mirá las opciones acá 👇\n{_l}", (_l,)))
+        check("lista: /l INVENTADO se borra (30/08)",
+              "onrender.com/l/" not in _limpiar_salida(
+                  "Mirá https://cerebro-kommo.onrender.com/l/111,222", (_l,))
+              or _l == "https://cerebro-kommo.onrender.com/l/111,222")
+    # la página /l arma el mini catálogo con los items del índice
+    try:
+        from app import main as _main
+    except ModuleNotFoundError:   # sin fastapi en este entorno: se salta
+        _main = None
+    if _main:
+        _r = await _main.lista_resultados(",".join(
+            [str(x["sku"]) for x in productos.indice_actual().buscar("mochila", 3)]))
+        _html_l = getattr(_r, "body", b"").decode("utf-8", "replace")
+        check("pagina /l arma tarjetas con precio (30/08)",
+              "/foto/" in _html_l and "gs" in _html_l)
+
     if FALLOS:
         print(f"❌ {len(FALLOS)} REGRESIONES: {FALLOS}")
         sys.exit(1)

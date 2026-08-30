@@ -463,31 +463,86 @@ async def foto_sku(sku: str):
                         headers={"Cache-Control": "public, max-age=86400"})
     it = await _prod.por_sku(sku)
     url = (it or {}).get("imagenes") and it["imagenes"][0] or ""
-    if not url:
-        return JSONResponse({"error": "sin foto"}, status_code=404)
-    try:
-        import io
+    # Fuentes en orden: storage de la web y, si falla (30/08: el VPS de la
+    # web se cayó entero), los espejos en GitHub Pages (no dependen de ese
+    # VPS): fotos del depósito en precios.* y el espejo COMPLETO del repo
+    # "fotos" (~24.500 miniaturas, se publica con respaldo-fotos-github).
+    # Los espejos también cubren SKUs que en la web no tienen foto.
+    fuentes = [u for u in (
+        url,
+        f"https://precios.shoppingasia.com.py/fotos_sku/{sku}.jpg",
+        f"https://w57eve.github.io/fotos/{sku}.jpg") if u]
+    import io
 
-        import httpx as _httpx
-        from PIL import Image
-        async with _httpx.AsyncClient(timeout=25) as cli:
-            r = await cli.get(url, headers={"User-Agent": "cerebro"})
-            r.raise_for_status()
-        img = Image.open(io.BytesIO(r.content)).convert("RGB")
-        img.thumbnail((600, 600))
-        buf = io.BytesIO()
-        img.save(buf, "JPEG", quality=72, optimize=True)
-        data = buf.getvalue()
-        if len(_fotos_cache) > 800:
-            _fotos_cache.clear()
-        _fotos_cache[sku] = data
-        return Response(content=data, media_type="image/jpeg",
-                        headers={"Cache-Control": "public, max-age=86400"})
-    except Exception as e:
-        print(f"[FOTO] error sku={sku}: {e}", flush=True)
-        # último recurso: redirigir a la foto original
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url)
+    import httpx as _httpx
+    from PIL import Image
+    for fuente in fuentes:
+        try:
+            async with _httpx.AsyncClient(timeout=25) as cli:
+                r = await cli.get(fuente, headers={"User-Agent": "cerebro"})
+                r.raise_for_status()
+            img = Image.open(io.BytesIO(r.content)).convert("RGB")
+            img.thumbnail((600, 600))
+            buf = io.BytesIO()
+            img.save(buf, "JPEG", quality=72, optimize=True)
+            data = buf.getvalue()
+            if len(_fotos_cache) > 800:
+                _fotos_cache.clear()
+            _fotos_cache[sku] = data
+            return Response(content=data, media_type="image/jpeg",
+                            headers={"Cache-Control": "public, max-age=86400"})
+        except Exception as e:
+            print(f"[FOTO] {fuente[:60]} sku={sku}: {e}", flush=True)
+    return JSONResponse({"error": "sin foto"}, status_code=404)
+
+
+# ── Lista de resultados en UN solo link (mini catálogo) ─────────────────────
+# El agente arma /l/<sku,sku,...> con sus candidatos REALES y manda un único
+# link: el cliente ve fotos + nombres + precios juntos, como un catalogo.
+@app.get("/l/{skus}")
+async def lista_resultados(skus: str):
+    from fastapi.responses import HTMLResponse
+
+    from . import productos as _prod
+    vistos, items = set(), []
+    for s in skus.split(",")[:8]:
+        s = "".join(c for c in s if c.isalnum())[:20]
+        if not s or s in vistos:
+            continue
+        vistos.add(s)
+        it = await _prod.por_sku(s)
+        if it:
+            items.append(it)
+    if not items:
+        return HTMLResponse("<h3>No encontramos esos productos.</h3>",
+                            status_code=404)
+    import html as _html
+    tarjetas = "".join(
+        f'<div class="c"><img src="/foto/{it["sku"]}.jpg" loading="lazy" '
+        f'onerror="this.closest(\'.c\').classList.add(\'sinfoto\')">'
+        f'<div class="n">{_html.escape(it["nombre"])}</div>'
+        f'<div class="p">{_prod.precio_texto(it)}</div>'
+        f'<div class="s">SKU {it["sku"]}</div></div>'
+        for it in items)
+    pagina = ("<!doctype html><html lang='es'><head><meta charset='utf-8'>"
+              "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+              "<title>Shopping Asia — opciones para vos</title><style>"
+              "body{font-family:system-ui,sans-serif;margin:0;background:#f4f4f6;color:#222}"
+              "h1{font-size:1.15rem;padding:14px 16px 4px}"
+              "p.i{padding:0 16px 10px;margin:0;color:#555;font-size:.9rem}"
+              ".g{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;padding:0 10px 20px}"
+              ".c{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08)}"
+              ".c img{width:100%;aspect-ratio:1;object-fit:contain;background:#fff;display:block}"
+              ".c.sinfoto img{display:none}"
+              ".n{font-size:.85rem;padding:8px 10px 2px;min-height:2.2em}"
+              ".p{font-weight:700;padding:0 10px;color:#0a7d33}"
+              ".s{font-size:.72rem;color:#888;padding:2px 10px 10px}"
+              "</style></head><body><h1>Shopping Asia 🛍️</h1>"
+              "<p class='i'>Estas son las opciones que te comenté. Decime por "
+              "WhatsApp cuál te gusta (nombre o SKU) y seguimos.</p>"
+              f"<div class='g'>{tarjetas}</div></body></html>")
+    return HTMLResponse(pagina,
+                        headers={"Cache-Control": "public, max-age=600"})
 
 
 @app.get("/ultimos-webhooks")

@@ -945,6 +945,25 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                      "mandes ningún link de buscador; resolvé con los "
                      "candidatos del catálogo o derivá.\n")
 
+    # UN SOLO LINK CON LAS OPCIONES (mini catálogo propio, 30/08): página
+    # /l/<skus> del cerebro con foto+nombre+precio de los candidatos REALES.
+    # Sirve siempre, y en especial cuando la web está caída (las fotos salen
+    # del espejo del depósito en precios.*). El server arma el link: la IA
+    # jamás lo inventa.
+    link_lista = ""
+    if len(sugeridos) >= 2 and not eligio and not _ya_derivado:
+        _skus_l = [str(s.get("sku")) for s in sugeridos[:6] if s.get("sku")]
+        if len(_skus_l) >= 2:
+            link_lista = ("https://cerebro-kommo.onrender.com/l/"
+                          + ",".join(_skus_l))
+            contexto += (
+                "Link con TODAS estas opciones juntas (foto, nombre y precio "
+                "en una sola página; va TAL CUAL, no lo modifiques ni armes "
+                f"otro): {link_lista}\n"
+                "Ofrecelo como 'mirá acá las opciones con fotos 👇' en un "
+                "renglón propio. Es UN solo link: no mandes además links de "
+                "fotos sueltas.\n")
+
     # MODELOS DISTINTOS con el MISMO nombre y precio (así están cargados en
     # el sistema): no listar repetidos; lo útil es el link verificado, donde
     # el cliente VE cada modelo con su foto (pedido del dueño 29/08).
@@ -996,6 +1015,8 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                 permitidos = (productos.foto_url(sugeridos[0]),)
             if link_web:
                 permitidos += (link_web,)
+            if link_lista:
+                permitidos += (link_lista,)
             derivar = "[DERIVAR]" in texto or eligio
             texto = _limpiar_salida(texto.replace("[DERIVAR]", ""), permitidos)
             texto = _verificar_precios(texto, sugeridos)

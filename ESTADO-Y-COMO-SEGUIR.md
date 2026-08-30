@@ -367,3 +367,8 @@ Nombres EXACTOS o se leen vacías.
 ## Monitoreo 30/08/2026 (corrida automática)
 Suite 72/72 ok antes de tocar nada; catálogo 49.536 productos, fetch 200. 196 mensajes, 0% fallback, 9% derivación. Ajusté _CALZADO_TOKENS en app/agente.py: +"horma/orma" ("Orma grande" traía maletas y cubiteras) y +"correr/running" ("para correr en pistas" traía CORREAS); agregué sus 2 tests (suite ahora 74/74). Falta doble clic a actualizar_github.bat.
 Pendientes detectados sin tocar: "taller 42" (typo de talle) respondió con llaves de tubo; texto unicode decorado (𝕔𝕒𝕝𝕫𝕒𝕕𝕠𝕤) no se normaliza (probar NFKD en _quita_tildes); saludo de pauta "más información" a veces busca "mas" y manda buscador?q=mas.
+
+## Monitoreo 30/08/2026 13:10 (corrida automática)
+Suite de regresión completa SIN regresiones (corrida local; avisos [CHICO] 403 son solo por falta de token en local, y los [PRECIO-FIX] del log son del propio test de listas inventadas).
+NO pude leer /aprendizaje ni /diag: web_fetch bloqueado por procedencia y el navegador denegó la navegación (corrida sin usuario presente). Sin datos en vivo no toco código.
+Siguen pendientes de la corrida anterior: "taller 42" (typo de talle), unicode decorado (probar NFKD en _quita_tildes), y buscador?q=mas del saludo de pauta. Falta doble clic a actualizar_github.bat de la corrida previa.
