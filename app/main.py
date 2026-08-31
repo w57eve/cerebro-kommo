@@ -492,7 +492,11 @@ async def foto_sku(sku: str, i: int = 0):
     it = await _prod.por_sku(sku)
     _imgs = (it or {}).get("imagenes") or []
     url = _imgs[i] if i < len(_imgs) else (_imgs[0] if _imgs and i == 0 else "")
-    if i > 0 and not url:              # foto extra que no existe: 404 directo
+    # OJO (31/08): NO cortar acá si la web no tiene la i-ésima — el ESPEJO es
+    # multi-foto (sku_2.jpg...). Este guard viejo hacía que las 4 fotos de
+    # los IRUN estuvieran publicadas pero nunca se sirvieran.
+    from . import espejo_fotos as _esp0
+    if i > 0 and not url and (await _esp0.cantidad(sku)) <= i:
         return JSONResponse({"error": "sin foto"}, status_code=404)
     # Fuentes en orden: storage de la web y, si falla (30/08: el VPS de la
     # web se cayó entero), los espejos en GitHub Pages (no dependen de ese
