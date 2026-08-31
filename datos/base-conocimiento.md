@@ -106,7 +106,10 @@ cuando el cliente pregunta por el **talle/calce** de un calzado (ej. "¿tienen 4
 
 1. **Avisar la horma**: decirle que estos modelos tienen horma chica, así que le
    conviene considerar **un número más** del que usa normalmente.
-2. **Pasar el catálogo de pautas**: https://catalogo.shoppingasia.com.py y
+2. **Pasar NUESTRO catálogo de calzados con fotos** (reemplaza al catálogo
+   de flyers desde el 31/08; tiene más fotos y varias por modelo):
+   https://cerebro-kommo.onrender.com/c/calzado%20irun (CROCS:
+   https://cerebro-kommo.onrender.com/c/crocs) y
    explicarle cómo usarlo, en simple: *ahí ves todos los modelos y talles
    disponibles; elegí el calzado que te gusta y tocá el botón "Hacer pedido" —
    eso te trae de vuelta acá con la info del calzado elegido*.
@@ -116,7 +119,8 @@ cuando el cliente pregunta por el **talle/calce** de un calzado (ej. "¿tienen 4
 
 > Este flujo aplica a los calzados de pautas/publicidad. El link del catálogo acá
 > REEMPLAZA al link de la web: para calzados de pautas se manda
-> catalogo.shoppingasia.com.py, no el buscador de la web.
+> el catálogo de calzados del cerebro (/c/calzado%20irun), no el buscador
+> de la web ni el catálogo viejo de flyers.
 
 ### 5.2 Búsqueda por foto = sugerencia, NO veredicto (regla de confianza)
 El motor de búsqueda por imagen **no siempre acierta**: a veces los resultados no son

@@ -32,7 +32,9 @@ _URL_RE = _re.compile(r"https?://[^\s)\]]+")
 # que el server autoriza en cada respuesta (permitidos_extra). Sin esto, la IA
 # pegaba fotos de un producto junto al nombre de otro, o fotos inventadas.
 _LINKS_BASE = (
-    "https://catalogo.shoppingasia.com.py",       # catálogo de pautas
+    "https://catalogo.shoppingasia.com.py",       # catálogo viejo de pautas
+    "https://cerebro-kommo.onrender.com/c/",      # catálogo dinámico propio
+    "https://cerebro-kommo.onrender.com/l/",      # lista de candidatos propia
     "https://wa.me/",                             # derivación a vendedor
     "https://www.google.com/maps",                # ubicación del local
     "https://maps.google.com", "https://maps.app.goo.gl",
@@ -334,11 +336,11 @@ Reglas duras (no las rompas nunca):
   ("no es eso", "no me entendés", "ya te dije", repite lo mismo) o después de
   DOS intentos seguís sin acertar el producto, no sigas insistiendo: disculpa
   breve y [DERIVAR]. Un cliente peleando con un bot es una venta perdida.
-- **CATÁLOGO RÁPIDO por SKU (dato exacto, no adivines):** si un candidato del
-  contexto dice "ESTÁ EN EL CATÁLOGO RÁPIDO", ese producto está publicado en
-  https://catalogo.shoppingasia.com.py con fotos y talles: ofrecé ese link
-  (botón 'Hacer pedido' lo trae de vuelta acá). Si NO lo dice, ese producto NO
-  está en el catálogo rápido: no lo prometas ahí.
+- **CATÁLOGO PROPIO CON FOTOS:** cuando el contexto te dé un link de
+  cerebro-kommo.onrender.com/c/... o /l/..., ese es NUESTRO catálogo con
+  fotos (deslizables si el modelo tiene varias), precios y botón
+  'Hacer pedido' que trae al cliente de vuelta acá con los datos. Usalo TAL
+  CUAL, nunca lo inventes ni lo modifiques.
 - **DERIVACIÓN: una sola vez por charla.** Si en la conversación previa ya
   derivaste (aparece un link wa.me), NO uses [DERIVAR] de nuevo: recordale que
   ese mismo vendedor lo va a atender y repetile el mismo link si hace falta.
@@ -486,7 +488,39 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     if n_corto:
         contexto += (f"El cliente se llama {n_corto}. Si saludó, devolvé el "
                      "saludo por su nombre UNA vez.\n")
+    _urls_cliente = _URL_RE.findall(mensaje)
+    if _urls_cliente and not ad_id:
+        def _n_url(u):
+            u = u.split("?")[0].rstrip("/").lower()
+            return u.replace("https://", "").replace("http://", "").replace("www.", "")
+        for _u in _urls_cliente:
+            _nu = _n_url(_u)
+            for _clave in conocimiento.ANUNCIOS:
+                _nc = _n_url(_clave) if _clave.startswith("http") else ""
+                if _nc and (_nc in _nu or _nu in _nc):
+                    ad_id = _clave
+                    print(f"[ANUNCIO] identificado por link del cliente: "
+                          f"{_clave!r}", flush=True)
+                    break
+            if ad_id:
+                break
+    if _urls_cliente and not ad_id and any(
+            d in u for u in _urls_cliente
+            for d in ("facebook.com", "fb.me", "fb.com", "instagram.com")):
+        contexto_link = (
+            "El cliente pegó el LINK de una publicación nuestra de "
+            "Facebook/Instagram. NO podés abrir ese link y los candidatos "
+            "NO salen de él. Si el resto de su mensaje ya dice qué busca "
+            "(producto, calce...), usá ESO; si no, pedile el nombre del "
+            "producto o una captura de la publicación (la captura sí la "
+            "podés ver).\n")
+    else:
+        contexto_link = ""
+    # los URLs no son palabras: fuera del texto que se busca/detecta
+    mensaje = _URL_RE.sub(" ", mensaje).strip() or mensaje
     ctx_ad = conocimiento.contexto_anuncio(ad_id)
+    if contexto_link:
+        contexto += contexto_link
     if ctx_ad:
         contexto += ctx_ad + "\n"
     elif (origen or "").lower() in ("facebook", "instagram",
@@ -498,9 +532,8 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             "publicación. NO adivines cuál es: preguntá qué producto vio o "
             "pedile que mande una captura de la publicación (la captura la "
             "podés ver). NO mandes ofertas genéricas de la página web, y solo "
-            "mencioná el catálogo rápido (catalogo.shoppingasia.com.py) si lo "
-            "que busca es CALZADO — ropa, maquillaje y otros rubros NO están "
-            "ahí.\n")
+            "mencioná el catálogo de calzados (el link de la regla de "
+            "calzados) si lo que busca es CALZADO.\n")
 
     # "Esto", "este", "es esta", "ese quiero": el cliente SEÑALA algo (la foto
     # o lo anterior), no nombra un producto. Buscar ese texto trae basura
@@ -752,6 +785,7 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                        # typos frecuentes de celular (letras vecinas / s-c-z)
                        "fitsal", "futzal", "fusal", "chanpion", "champio",
                        "sapatilla", "zapato", "sapato", "calsado", "calzada",
+                       "botita", "botitas",
                        "grasep", "graseep", "grassep", "gracep", "graset",
                        "grazep", "chuteira", "knup", "diadora",
                        # autocorrector del celular (sondeo 30/08): shampiones,
@@ -850,10 +884,10 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             and not sku and "(foto del cliente:" not in mensaje)
         if _calzado_fam and cand:
             contexto += (
-                "Es consulta de CALZADOS por familia: NO menciones precios ni "
-                "fotos ni listas de modelos (los precios vigentes están en el "
-                "catálogo rápido, los de acá pueden estar desfasados). "
-                "Respondé SOLO con la regla fija de calzados.\n")
+                "Es consulta de CALZADOS por familia: NO listes modelos ni "
+                "precios sueltos — todo eso vive en NUESTRO catálogo de "
+                "calzados (el link va en la regla fija de calzados, más "
+                "abajo). Respondé SOLO con esa regla.\n")
         elif len(cand) == 1:
             contexto += "Posible producto (confirmá con el cliente):\n" + await _linea(cand[0]) + "\n"
         elif len(cand) > 1:
@@ -959,24 +993,22 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             "el calce que dijo) y nada más. El sistema agrega el contacto del "
             "vendedor automáticamente al final de tu mensaje.\n")
 
+    _link_calzados = ("https://cerebro-kommo.onrender.com/c/crocs"
+                      if "croc" in _msg_n or "crocs" in _msg_n else
+                      "https://cerebro-kommo.onrender.com/c/calzado%20irun")
     if pauta_term and not eligio:
         contexto += (
-            "CONSULTA DE CALZADO (regla fija, en este ORDEN): "
-            "1) PRIMERO el catálogo rápido: pasá "
-            "https://catalogo.shoppingasia.com.py explicando en simple que ahí "
-            "están los modelos con talles y que al tocar 'Hacer pedido' vuelve "
-            "acá con el calzado elegido; si preguntó por talle/calce, recordá "
-            "la horma chica (conviene un número más). "
-            "2) el link de la web va SIEMPRE AL FINAL, como ÚLTIMO renglón del "
-            "mensaje: 'en la página tenés más opciones, deslizá hacia abajo "
-            "para verlas 👉' + el link 'ver más' que te doy abajo. Nada va "
-            "después de ese link. "
-            "Si además encontré candidatos que coincidan con lo pedido, podés "
-            "mostrar 2-3 con foto y precio antes del paso 1. NUNCA digas 'no "
-            "tenemos' en calzados: lo pautado está en el catálogo chico. "
-            "Antes del link final aclarale en una línea: si lo que vio era "
-            "OTRO producto (no calzado), que te diga con claridad cuál le "
-            "interesa.\n")
+            "CONSULTA DE CALZADO (regla fija): pasá NUESTRO CATÁLOGO DE "
+            "CALZADOS (un solo link, va TAL CUAL): "
+            f"{_link_calzados} — explicá en simple: ahí ve TODOS los modelos "
+            "con fotos (si un modelo tiene varias fotos las desliza), precios "
+            "y talles, toca 'Hacer pedido' en el que le guste y vuelve acá "
+            "con los datos para concretar. Si preguntó por talle/calce, "
+            "recordá la horma chica (conviene un número más). NUNCA digas "
+            "'no tenemos' en calzados. NO mandes otros links ni listas de "
+            "precios: ese catálogo es la única fuente. Aclarale en una línea "
+            "final: si lo que vio era OTRO producto (no calzado), que te "
+            "diga cuál.\n")
 
     # Link "ver más": resultados de ESTA búsqueda en la web (jerga ya mapeada,
     # ej. championes -> calzado). VERIFICADO contra el catálogo: corrige tipeos
@@ -1054,7 +1086,8 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                 from . import espejo_fotos as _esp3
                 await _esp3._asegurar()
                 _cf = [x for x in _res200
-                       if x.get("imagenes") or _esp3.n_sync(x.get("sku"))]
+                       if x.get("imagenes") or _esp3.n_sync(x.get("sku"))
+                       or catalogo_chico.foto_sync(x.get("sku"))]
             except Exception:
                 _cf = []
             # solo con foto (regla del dueño 31/08); si casi ninguno tiene,

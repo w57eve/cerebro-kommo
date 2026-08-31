@@ -335,7 +335,7 @@ async def correr():
           "CONSULTA DE CALZADO" in CTX["ctx"]
           and "Acrobático" not in CTX["ctx"]
           and "Senderismo" not in CTX["ctx"]
-          and "catalogo.shoppingasia.com.py" in CTX["ctx"]
+          and "onrender.com/c/calzado" in CTX["ctx"]
           and "OTRO producto" in CTX["ctx"])
     # plural "el todos terrenos" también es la jerga (29/08 Misael)
     await agente.procesar("Yo estoy interesado por el todos terrenos")
@@ -451,9 +451,12 @@ async def correr():
     await agente.procesar("Tienen grasep?", historial=[], lead_id="t-gra")
     check("grasep: sin lista de candidatos ni precios web (30/08)",
           sum(1 for l in CTX["ctx"].splitlines() if l.startswith("- SKU")) == 0
-          and "desfasados" in CTX["ctx"])
+          and "catálogo de" in CTX["ctx"])
     check("grasep: sin link de lista /l (30/08)",
           "onrender.com/l/" not in CTX["ctx"])
+    await agente.procesar("tienen crocs?", historial=[], lead_id="t-croc")
+    check("crocs va a su catálogo propio (31/08)",
+          "onrender.com/c/crocs" in CTX["ctx"])
     # arnés: rubro normal con 98 productos; el buscador debe traerlos
     await agente.procesar("Tienen arnés para perros?", historial=[],
                           lead_id="t-arn")
@@ -501,10 +504,11 @@ async def correr():
         _l = _m.group()
         check("lista: link autorizado pasa la limpieza (30/08)",
               _l in _limpiar_salida(f"Mirá las opciones acá 👇\n{_l}", (_l,)))
-        check("lista: /l INVENTADO se borra (30/08)",
-              "onrender.com/l/" not in _limpiar_salida(
-                  "Mirá https://cerebro-kommo.onrender.com/l/111,222", (_l,))
-              or _l == "https://cerebro-kommo.onrender.com/l/111,222")
+        # (31/08: /l y /c del cerebro pasaron a la allowlist fija — la
+        # página solo muestra productos REALES, no puede inventar nada)
+        check("lista: /l propio permitido por diseño (31/08)",
+              "onrender.com/l/" in _limpiar_salida(
+                  "Mirá https://cerebro-kommo.onrender.com/l/111,222", ()))
     # la página /l arma el mini catálogo con los items del índice
     try:
         from app import main as _main
@@ -612,8 +616,7 @@ async def correr():
           sum(1 for l in CTX["ctx"].splitlines()
               if l.startswith("- SKU")) == 0
           and "CONSULTA DE CALZADO" in CTX["ctx"]
-          and "onrender.com/l/" not in CTX["ctx"]
-          and "onrender.com/c/" not in CTX["ctx"])
+          and "onrender.com/c/calzado" in CTX["ctx"])   # catálogo propio (31/08)
     await agente.procesar("y mochilas tenes?", historial=h_mar,
                           lead_id="t-mar2")
     check("cambio de rubro en hilo calzado sigue libre (30/08)",
@@ -623,6 +626,33 @@ async def correr():
     check("asteriscos pegados al link se quitan (30/08)",
           "*https" not in _limpiar_salida(
               "Entrá a *https://catalogo.shoppingasia.com.py*, buscá"))
+
+    # ── CASO JORGE (31/08): link de publicación FB + "calce 43" + "tipo
+    # botita" -> buscó las letras del URL y confirmó una LÁMPARA SOLAR ──
+    _r = await agente.procesar(
+        "https://www.facebook.com/ShoppingAsiapy/posts/pfbid026XYZabc\n"
+        "En calce 43 necesito\nTipo botita", historial=[], lead_id="t-jor")
+    check("link FB no envenena la búsqueda (31/08 Jorge)",
+          "LAMPARA" not in CTX["ctx"].upper()
+          and "SOLAR" not in CTX["ctx"].upper())
+    check("link FB sin mapa -> nota de publicación (31/08)",
+          "publicación nuestra" in CTX["ctx"])
+    check("calce 43 con botita deriva (31/08)", _r.get("derivar"))
+    # si el link SÍ está en el mapa, identifica el anuncio
+    from app import conocimiento as _cono3
+    _cono3.ANUNCIOS["https://www.facebook.com/ShoppingAsiapy/posts/999888777"] = {
+        "representa": "PRUEBA BOTINES", "tipo": "sección", "sku": "",
+        "alcance": "línea IRUN"}
+    await agente.procesar(
+        "https://www.facebook.com/ShoppingAsiapy/posts/999888777/\nquiero info",
+        historial=[], lead_id="t-jor2")
+    check("publicación identificada por link del cliente (31/08)",
+          "PRUEBA BOTINES" in CTX["ctx"])
+    _cono3.ANUNCIOS.pop("https://www.facebook.com/ShoppingAsiapy/posts/999888777")
+    # botita = botin
+    check("botita busca botines (31/08)",
+          any("BOT" in x["nombre"].upper()
+              for x in productos.indice_actual().buscar("botita", 4)))
 
     if FALLOS:
         print(f"❌ {len(FALLOS)} REGRESIONES: {FALLOS}")

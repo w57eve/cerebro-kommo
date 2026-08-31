@@ -108,7 +108,7 @@ _GRUPOS = [
     # "terreno" (de "todo terreno", 30/08) solo la palabra rara: agregar "todo"
     # contaminaria frases como "a todo el pais"
     ["chutera", "botin", "botines", "chuteras", "taquilla", "taquillas",
-     "terreno", "todoterreno", "todoterrenos"],
+     "terreno", "todoterreno", "todoterrenos", "botita", "botitas"],
     # GRASEP es un MODELO de la linea IRUN (asi figura en catalogo y pautas)
     ["irun", "grasep", "graseep", "grassep", "gracep", "grase"],
     ["pegatina", "sticker", "adhesivo", "calcomania"],
@@ -480,8 +480,10 @@ class Indice:
 def it_foto(it) -> bool:
     if it.get("imagenes"):
         return True
-    try:   # espejo de fotos en GitHub (cache en memoria; 0 red)
+    try:   # espejo de fotos y catálogo chico (caches en memoria; 0 red)
+        from . import catalogo_chico as _chi
         from . import espejo_fotos as _esp
-        return _esp.n_sync(it.get("sku")) > 0
+        sku = it.get("sku")
+        return _esp.n_sync(sku) > 0 or bool(_chi.foto_sync(sku))
     except Exception:
         return False

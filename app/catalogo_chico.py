@@ -66,6 +66,11 @@ def cantidad() -> int:
     return len(_cache["por_sku"])
 
 
+def foto_sync(sku) -> str:
+    """Foto del SKU en el catálogo rápido SIN red (cache ya cargado)."""
+    return _cache.get("foto_sku", {}).get(str(sku or "").strip(), "")
+
+
 async def foto_de(sku) -> str:
     """URL de la foto del SKU en el catálogo rápido (Cloudflare, siempre
     vivo), o "". Fuente de respaldo para /foto cuando la web está caída."""

@@ -470,6 +470,7 @@ async def webhook_mensajes(request: Request):
 # el bot manda https://cerebro-kommo.onrender.com/foto/<sku>.jpg y la preview
 # carga al instante. Caché en memoria (las más pedidas quedan listas).
 _fotos_cache = {}   # sku -> bytes jpeg
+_storage_caido = {"ts": 0.0}   # último fallo del storage de la web
 
 
 @app.get("/foto/{sku}.jpg")
@@ -500,13 +501,16 @@ async def foto_sku(sku: str, i: int = 0):
     # Los espejos también cubren SKUs que en la web no tienen foto.
     from . import catalogo_chico as _chico
     from . import espejo_fotos as _esp
+    # CORTOCIRCUITO (31/08): si el storage de la web viene fallando (VPS
+    # caído), no gastar 6s por foto en él — el espejo pasa PRIMERO.
+    _storage_ok = _time.time() - _storage_caido.get("ts", 0) > 300
     fuentes = [u for u in (
-        url,
-        # catálogo chico y precios tienen UNA foto por SKU (solo i=0);
+        url if _storage_ok else "",
         # el espejo "fotos" es MULTI-FOTO (sku.jpg, sku_2.jpg, ...)
+        _esp.url_foto(sku, i),
         (await _chico.foto_de(sku)) if i == 0 else "",
         f"https://precios.shoppingasia.com.py/fotos_sku/{sku}.jpg" if i == 0 else "",
-        _esp.url_foto(sku, i)) if u]
+        url if not _storage_ok else "") if u]
     import io
 
     import httpx as _httpx
@@ -529,6 +533,8 @@ async def foto_sku(sku: str, i: int = 0):
             return Response(content=data, media_type="image/jpeg",
                             headers={"Cache-Control": "public, max-age=86400"})
         except Exception as e:
+            if "shoppingasia.com.py/storage" in fuente:
+                _storage_caido["ts"] = _time.time()   # 5 min sin insistir
             print(f"[FOTO] {fuente[:60]} sku={sku}: {e}", flush=True)
     import time as _t2
     if len(_fotos_cache) > 800:
@@ -654,8 +660,10 @@ async def catalogo_dinamico(termino: str):
     # ninguno tiene, se muestran todos para no dejar la página vacía)
     from . import espejo_fotos as _esp2
     await _esp2._asegurar()
+    from . import catalogo_chico as _chi2
     _con_foto = [x for x in items
-                 if x.get("imagenes") or _esp2.n_sync(x.get("sku"))]
+                 if x.get("imagenes") or _esp2.n_sync(x.get("sku"))
+                 or _chi2.foto_sync(x.get("sku"))]
     if len(_con_foto) >= 2:
         items = _con_foto
     if not items:
