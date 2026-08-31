@@ -579,8 +579,13 @@ async def _pagina_catalogo(items, titulo, nota):
             f"Producto (SKU): {sku}\n"
             f"Artículo: {nombre} — {precio}"))
         _cls_fs = "fs multi" if n_fotos > 1 else "fs"
+        _nav = ('<button class="nav prev" aria-label="anterior">&#8249;</button>'
+                '<button class="nav next" aria-label="siguiente">&#8250;</button>'
+                f'<span class="cnt">1/{min(n_fotos, 4)}</span>'
+                if n_fotos > 1 else "")
         tarjetas.append(
-            f'<div class="c"><div class="{_cls_fs}">{fotos}</div>{puntos}'
+            f'<div class="c"><div class="fw"><div class="{_cls_fs}">{fotos}'
+            f'</div>{_nav}</div>{puntos}'
             f'<div class="tx"><div class="n">{_html.escape(nombre)}</div>'
             f'<div class="p">{precio}</div>'
             f'<div class="s">SKU {sku}</div></div>'
@@ -615,6 +620,18 @@ background:linear-gradient(160deg,#faf7f9,#f0edf2)}}
 opacity:.45;cursor:pointer}}
 .dots i.on{{opacity:1;background:var(--marca)}}
 .fs.multi img{{cursor:pointer}}
+.fw{{position:relative}}
+.nav{{position:absolute;top:50%;transform:translateY(-50%);width:32px;
+height:32px;border-radius:50%;border:0;background:rgba(255,255,255,.92);
+color:#333;font-size:20px;line-height:1;display:flex;align-items:center;
+justify-content:center;cursor:pointer;z-index:2;
+box-shadow:0 1px 5px rgba(0,0,0,.25);opacity:0;transition:opacity .15s}}
+.prev{{left:8px}}.next{{right:8px}}
+.fw:hover .nav{{opacity:1}}
+@media(pointer:coarse){{.nav{{opacity:.7;width:28px;height:28px}}}}
+.cnt{{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.45);
+color:#fff;font-size:.68rem;font-weight:600;padding:2px 8px;
+border-radius:10px;z-index:2}}
 .tx{{padding:9px 12px 4px;flex:1}}
 .n{{font-size:.84rem;line-height:1.25;font-weight:500;min-height:2.1em}}
 .p{{font-size:1.02rem;font-weight:800;color:var(--verde);margin-top:4px}}
@@ -629,24 +646,39 @@ padding:10px 0;border-radius:12px}}
 <div class='g'>{"".join(tarjetas)}</div>
 <script>
 document.querySelectorAll('.c').forEach(function(c){{
-  var fs=c.querySelector('.fs'), dots=c.querySelectorAll('.dots i');
+  var fs=c.querySelector('.fs'), dots=c.querySelectorAll('.dots i'),
+      cnt=c.querySelector('.cnt');
   if(!fs)return;
+  var n=fs.querySelectorAll('img').length;
+  function idx(){{return Math.round(fs.scrollLeft/fs.clientWidth);}}
   function marca(){{
-    if(!dots.length)return;
-    var i=Math.round(fs.scrollLeft/fs.clientWidth);
+    var i=idx();
     dots.forEach(function(d,j){{d.classList.toggle('on',j===i);}});
+    if(cnt)cnt.textContent=(i+1)+'/'+n;
+  }}
+  function go(i){{
+    i=(i+n)%n;
+    fs.scrollTo({{left:i*fs.clientWidth,behavior:'smooth'}});
   }}
   marca();
   fs.addEventListener('scroll',function(){{requestAnimationFrame(marca);}});
-  fs.addEventListener('click',function(){{
-    var n=fs.querySelectorAll('img').length; if(n<2)return;
-    var i=(Math.round(fs.scrollLeft/fs.clientWidth)+1)%n;
-    fs.scrollTo({{left:i*fs.clientWidth,behavior:'smooth'}});
+  var pv=c.querySelector('.prev'), nx=c.querySelector('.next');
+  if(pv)pv.addEventListener('click',function(e){{e.preventDefault();go(idx()-1);}});
+  if(nx)nx.addEventListener('click',function(e){{e.preventDefault();go(idx()+1);}});
+  var x0=null, drag=false;
+  fs.addEventListener('pointerdown',function(e){{x0=e.clientX;drag=false;}});
+  fs.addEventListener('pointermove',function(e){{
+    if(x0!==null&&Math.abs(e.clientX-x0)>12)drag=true;
+  }});
+  fs.addEventListener('pointerup',function(e){{
+    if(n<2){{x0=null;return;}}
+    var dx=e.clientX-(x0===null?e.clientX:x0);
+    if(drag&&Math.abs(dx)>35){{go(idx()+(dx<0?1:-1));}}
+    else if(!drag){{go(idx()+1);}}
+    x0=null;drag=false;
   }});
   dots.forEach(function(d,j){{
-    d.addEventListener('click',function(){{
-      fs.scrollTo({{left:j*fs.clientWidth,behavior:'smooth'}});
-    }});
+    d.addEventListener('click',function(){{go(j);}});
   }});
 }});
 </script></body></html>"""
