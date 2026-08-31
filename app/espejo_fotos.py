@@ -41,6 +41,11 @@ async def cantidad(sku) -> int:
     return _cache["n"].get(str(sku or "").strip(), 0)
 
 
+def n_sync(sku) -> int:
+    """Cantidad en el espejo SIN red (usa el cache ya cargado; 0 si vacío)."""
+    return _cache["n"].get(str(sku or "").strip(), 0)
+
+
 def url_foto(sku, i: int = 0) -> str:
     """URL de la i-ésima foto del espejo (i=0 es la principal)."""
     sku = str(sku or "").strip()

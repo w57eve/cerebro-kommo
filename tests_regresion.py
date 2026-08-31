@@ -589,11 +589,12 @@ async def correr():
     _ix3 = productos.indice_actual()
     for _q, _esp in [("cama para perro", "MASCOTA"), ("cama para gato", "MASCOTA"),
                      ("vincha", "VINCHA"), ("corpiño", "CORPIÑO"),
-                     ("juego de sabanas", "SABANA"), ("ojotas", "CHANCLA"),
+                     ("juego de sabanas", "SABANA"), ("ojotas", "CHANCLA|SANDALIA|CHINELA"),
                      ("champion para niños", "INF")]:
         _r3 = _ix3.buscar(_q, 4)
         check(f"mapa catálogo (30/08): {_q!r} -> {_esp}",
-              any(_esp in x["nombre"].upper() for x in _r3))
+              any(any(e in x["nombre"].upper() for e in _esp.split("|"))
+                  for x in _r3))
     check("hiperonimo dirigido: perro NO trae gato (30/08)",
           not any("GATO" in x["nombre"].upper()
                   for x in _ix3.buscar("juguetes para perro", 5)))

@@ -471,8 +471,17 @@ class Indice:
                            key=lambda x: (-x[1], -x[2]))
             elegidos = list(elegidos) + resto
 
+        # PRIORIDAD: el cliente quiere VER -> los que tienen foto van
+        # primero (orden estable: adentro de cada grupo manda el puntaje).
+        elegidos = sorted(elegidos, key=lambda x: -x[2])
         return [self.items[d] for _, _, _, d in elegidos[:limite]]
 
 
 def it_foto(it) -> bool:
-    return bool(it.get("imagenes"))
+    if it.get("imagenes"):
+        return True
+    try:   # espejo de fotos en GitHub (cache en memoria; 0 red)
+        from . import espejo_fotos as _esp
+        return _esp.n_sync(it.get("sku")) > 0
+    except Exception:
+        return False

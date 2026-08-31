@@ -1049,7 +1049,17 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
         # 30/08: "si hay 200 arneses que le presente todos").
         _n_total = 0
         if term_web:
-            _n_total = len(await productos.buscar(term_web, limite=200))
+            _res200 = await productos.buscar(term_web, limite=200)
+            try:
+                from . import espejo_fotos as _esp3
+                await _esp3._asegurar()
+                _cf = [x for x in _res200
+                       if x.get("imagenes") or _esp3.n_sync(x.get("sku"))]
+            except Exception:
+                _cf = []
+            # solo con foto (regla del dueño 31/08); si casi ninguno tiene,
+            # se cuentan todos (la página hace el mismo corte)
+            _n_total = len(_cf) if len(_cf) >= 2 else len(_res200)
         if term_web and _n_total > len(sugeridos):
             from urllib.parse import quote as _qc
             link_lista = ("https://cerebro-kommo.onrender.com/c/"

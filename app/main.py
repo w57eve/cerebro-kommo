@@ -564,7 +564,7 @@ async def _pagina_catalogo(items, titulo, nota):
         fotos = "".join(
             f'<img src="/foto/{sku}.jpg{("?i=%d" % j) if j else ""}" '
             f'loading="lazy" alt="" '
-            f'onerror="this.classList.add(\'x\')">'
+            f'onerror="this.remove()">'
             for j in range(min(n_fotos, 4)))
         puntos = ("<div class='dots'>" + "<i></i>" * min(n_fotos, 4) + "</div>"
                   if n_fotos > 1 else "")
@@ -603,7 +603,6 @@ aspect-ratio:1}}
 .fs::-webkit-scrollbar{{display:none}}
 .fs img{{flex:0 0 100%;width:100%;object-fit:contain;scroll-snap-align:center;
 background:linear-gradient(160deg,#faf7f9,#f0edf2)}}
-.fs img.x{{visibility:hidden}}
 .dots{{display:flex;gap:5px;justify-content:center;padding:6px 0 0}}
 .dots i{{width:6px;height:6px;border-radius:50%;background:var(--suave);
 opacity:.45}}
@@ -651,6 +650,14 @@ async def catalogo_dinamico(termino: str):
     if not termino:
         return HTMLResponse("<h3>Búsqueda vacía.</h3>", status_code=404)
     items = await _prod.buscar(termino, limite=200)
+    # prioridad del dueño (31/08): pasar SOLO los que tienen foto (si casi
+    # ninguno tiene, se muestran todos para no dejar la página vacía)
+    from . import espejo_fotos as _esp2
+    await _esp2._asegurar()
+    _con_foto = [x for x in items
+                 if x.get("imagenes") or _esp2.n_sync(x.get("sku"))]
+    if len(_con_foto) >= 2:
+        items = _con_foto
     if not items:
         return HTMLResponse(
             "<h3>No encontramos resultados para esa búsqueda.</h3>",
