@@ -519,6 +519,14 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     # los URLs no son palabras: fuera del texto que se busca/detecta
     mensaje = _URL_RE.sub(" ", mensaje).strip() or mensaje
     ctx_ad = conocimiento.contexto_anuncio(ad_id)
+    _ad_calzado = bool(ctx_ad) and any(
+        w in ctx_ad.upper() for w in ("IRUN", "CALZAD", "GRASEP", "CROCS",
+                                      "BOTIN", "CHAMPION"))
+    # mensaje genérico de pauta: no aporta palabras para buscar
+    _msg_generico_pauta = bool(_re.search(
+        r"(quiero|me gustar[ií]a|necesito|pueden?( enviarme)?)\s+"
+        r"(conseguir\s+)?(m[aá]s\s+)?informaci[oó]n|get started",
+        busqueda.normalizar(mensaje)))
     if contexto_link:
         contexto += contexto_link
     if ctx_ad:
@@ -813,6 +821,9 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
         pass   # jerga del anuncio: la búsqueda literal solo mete ruido
     elif _pide_novedades:
         pass   # pregunta por lo nuevo: la búsqueda literal solo mete ruido
+    elif ctx_ad and _msg_generico_pauta:
+        pass   # "quiero más información" + anuncio identificado: buscar ese
+        # texto trae basura (31/08: cepillos para una pauta de IRUN)
     else:
         # Para BUSCAR se saca el marcador "(foto del cliente:" — sus palabras
         # no son del cliente y el corrector convierte "cliente" en "caliente"
@@ -946,8 +957,10 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                                 or _re.search(r"todos?\s+(los\s+)?terrenos?"
                                               r"|todoterrenos?", _msg_n))
                   else "")
-    if _calzado_fam and not pauta_term:
-        pauta_term = "calzado"   # familia detectada por resultados/hilo (30/08 Marina)
+    if (_calzado_fam or _ad_calzado) and not pauta_term:
+        pauta_term = "calzado"   # por resultados/hilo (Marina) o por el
+        # ANUNCIO identificado (31/08 Katherine: pauta IRUN + "quiero más
+        # información" mandaba cepillos)
 
     # ── ELECCIÓN CONCRETADA (detección DETERMINÍSTICA en el servidor) ──
     # El cliente ya eligió si: mandó un SKU (venía del botón "Hacer pedido" o

@@ -654,6 +654,25 @@ async def correr():
           any("BOT" in x["nombre"].upper()
               for x in productos.indice_actual().buscar("botita", 4)))
 
+    # ── PAUTA IDENTIFICADA MANDA (31/08 Katherine: pauta IRUN + "quiero
+    # más información" mandó /l con cepillos y CHAMPION INF de 240k) ──
+    from app import conocimiento as _cono4
+    _cono4.ANUNCIOS.setdefault("champion_irun", {
+        "representa": "CHAMPIONES IRUN", "tipo": "sección (línea)",
+        "sku": "toda la línea IRUN", "alcance": "línea IRUN completa"})
+    await agente.procesar("¡Hola! Quiero más información",
+                          ad_id="champion_irun", historial=[],
+                          lead_id="t-kat")
+    check("pauta calzado + msg generico -> regla calzado sin basura (31/08)",
+          sum(1 for l in CTX["ctx"].splitlines()
+              if l.startswith("- SKU")) == 0
+          and "CONSULTA DE CALZADO" in CTX["ctx"]
+          and "onrender.com/c/calzado" in CTX["ctx"]
+          and "onrender.com/l/" not in CTX["ctx"])
+    check("termino sin gs/mil (31/08 Maggie)",
+          productos.indice_actual().termino_web(
+              "Carritos para bebes hasta 350mil gs") == "carritos bebes")
+
     if FALLOS:
         print(f"❌ {len(FALLOS)} REGRESIONES: {FALLOS}")
         sys.exit(1)

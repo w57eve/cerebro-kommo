@@ -202,7 +202,9 @@ def _pares(texto):
 # web (30/08: links rotos "?q=foto" por "la foto de juguetes..." y "?q=est").
 _META = {"foto", "fotos", "imagen", "imagene", "imagen", "fotografia",
          "este", "esta", "ese", "esa", "est", "aquel", "opcion", "opcione",
-         "modelo", "informacion", "info", "precio"}
+         "modelo", "informacion", "info", "precio",
+         # 31/08: "hasta 350mil gs" metía "gs" al término del catálogo
+         "gs", "mil", "guaranies", "hasta"}
 
 
 def termino_web(texto: str) -> str:
