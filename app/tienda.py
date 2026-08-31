@@ -71,6 +71,17 @@ CATEGORIAS = {
                             "cinta metrica", "soldador", "manguera"],
 }
 
+# Palabras que EXPULSAN a un producto de una categoría (limpieza 31/08):
+# p. ej. "LÁPIZ labial" caía en Librería y los pañales "SIN PERFUME" en Belleza
+EXCLUIR = {
+    "Calzados": ["adorno", "navideño", "almohadilla", "desodorante",
+                 "secador de calzado", "acrobatico", "ambientador"],
+    "Librería y Oficina": ["labial", "adhesivo para coche"],
+    "Belleza y Cuidado": ["always", "pañal", "pampers", "diario"],
+    "Juguetes": ["mascota", "perro", "gato"],
+    "Ropa y Moda": ["arnes", "mascota", "almohadilla"],
+}
+
 _cache = {"idx_id": None, "skus": {}}
 
 
@@ -88,6 +99,14 @@ def _clasificar(idx):
                 for forma in idx._expandir(tok):
                     for d, _ in idx.inv.get(forma, ()):
                         docs.add(d)
+        # exclusiones: si el nombre trae una palabra vetada, afuera
+        _vetos = set()
+        for palabra in EXCLUIR.get(cat, []):
+            _vetos |= {tok for tok in busqueda.tokenizar(palabra)
+                       if tok not in busqueda.STOP}
+        if _vetos:
+            docs = {d for d in docs
+                    if not (_vetos & set(idx.docs[d]))}
         por_cat[cat] = docs
     _cache.update(idx_id=id(idx), skus=por_cat)
     return por_cat
@@ -102,7 +121,16 @@ def items_de(idx, categoria: str, con_foto_primero=True) -> list:
     """Todos los items de una categoría (dicts del catálogo)."""
     docs = _clasificar(idx).get(categoria, set())
     items = [idx.items[d] for d in docs]
-    items.sort(key=lambda it: (not busqueda.it_foto(it),
+
+    def _es_accesorio(it):
+        toks = busqueda.tokenizar(it.get("nombre") or "")[:2]
+        return any(tk in busqueda.ACCESORIO for tk in toks)
+
+    # orden: primero el producto en sí con foto; los ACCESORIOS (cordones,
+    # plantillas, fundas...) al final — el que entra a Calzados quiere ver
+    # calzados (31/08)
+    items.sort(key=lambda it: (_es_accesorio(it),
+                               not busqueda.it_foto(it),
                                it.get("nombre") or ""))
     return items
 

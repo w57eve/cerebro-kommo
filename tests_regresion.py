@@ -705,6 +705,22 @@ async def correr():
               "/c/perfume" in _rb.headers.get("location", "")
               and "cat=" in _rb.headers.get("location", ""))
 
+    # ── LIMPIEZA DE CATEGORÍAS Y ACCESORIOS (31/08 noche) ──
+    if _main3:
+        _idx5 = productos.indice_actual()
+        _cts2 = _tienda.conteos(_idx5)
+        check("categorías sin el bug del 'de' (31/08): Juguetes real",
+              _cts2.get("Juguetes", 99999) < 3000)
+        _cal = _tienda.items_de(_idx5, "Calzados")
+        _prim = [x["nombre"].upper() for x in _cal[:30]]
+        check("cordones/accesorios al FONDO de Calzados (31/08)",
+              not any("CORDONES PARA" in n or "PLANTILLA" in n
+                      for n in _prim))
+        _lib = [x["nombre"].upper() for x in _tienda.items_de(
+            _idx5, "Librería y Oficina")[:30]]
+        check("labiales fuera de Librería (31/08)",
+              not any("LABIAL" in n for n in _lib))
+
     if FALLOS:
         print(f"❌ {len(FALLOS)} REGRESIONES: {FALLOS}")
         sys.exit(1)

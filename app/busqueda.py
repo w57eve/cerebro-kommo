@@ -56,6 +56,9 @@ STOP = {
 ACCESORIO = {
     "funda", "estuche", "forro", "protector", "soporte", "porta", "cable",
     "adaptador", "repuesto", "film", "mica", "sticker", "calcomania", "cobertor",
+    # 31/08: buscando calzados aparecían CORDONES entre los championes
+    "cordon", "cordones", "plantilla", "pasador", "talquera", "limpiador",
+    "recambio", "ricambio", "repuestos",
 }
 
 # ── Grupos de sinónimos / jerga PY. Se guardan en singular (se singulariza al
@@ -164,6 +167,8 @@ def _construir_exp():
         formas = set()
         for w in grupo:
             for pw in tokenizar(w):     # tokeniza+singulariza cada forma
+                if pw in STOP:          # "muñeco DE peluche" metía "de" al
+                    continue            # grupo -> 18.000 falsos (31/08)
                 formas.add(pw)
         for w in formas:
             exp.setdefault(w, set()).update(formas)
