@@ -531,6 +531,8 @@ async def foto_sku(sku: str, i: int = 0):
             buf = io.BytesIO()
             img.save(buf, "JPEG", quality=72, optimize=True)
             data = buf.getvalue()
+            if "shoppingasia.com.py/storage" in fuente:
+                _esp.storage_ok["v"] = True
             if len(_fotos_cache) > 800:
                 _fotos_cache.clear()
             _fotos_cache[_clave] = data
@@ -539,6 +541,7 @@ async def foto_sku(sku: str, i: int = 0):
         except Exception as e:
             if "shoppingasia.com.py/storage" in fuente:
                 _storage_caido["ts"] = _time.time()   # 5 min sin insistir
+                _esp.storage_ok["v"] = False
             print(f"[FOTO] {fuente[:60]} sku={sku}: {e}", flush=True)
     import time as _t2
     if len(_fotos_cache) > 800:
@@ -785,11 +788,13 @@ async def tienda_portada():
 
     from . import productos as _prod
     from . import tienda as _td
+    from . import espejo_fotos as _esp5
+    await _esp5._asegurar()
     idx = _prod.indice_actual()
     if not idx:
         return HTMLResponse("<h3>Catálogo cargando, probá en unos segundos."
                             "</h3>", status_code=503)
-    cts = _td.conteos(idx)
+    cts = {c: len(_td.items_de(idx, c)) for c in _td.CATEGORIAS}
     fichas = "".join(
         f'<a class="catf" href="/cat/{_h.escape(c)}"><b>{_h.escape(c)}</b>'
         f'<span>{n} productos</span></a>'
@@ -823,6 +828,8 @@ async def tienda_categoria(categoria: str, p: int = 1):
 
     from . import productos as _prod
     from . import tienda as _td
+    from . import espejo_fotos as _esp4
+    await _esp4._asegurar()   # sin esto, en frío el orden con-foto fallaba
     idx = _prod.indice_actual()
     if not idx or categoria not in _td.CATEGORIAS:
         return HTMLResponse("<h3>Categoría no encontrada. "

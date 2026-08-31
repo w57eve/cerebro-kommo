@@ -15,6 +15,8 @@ import httpx
 URL_BASE = os.getenv("ESPEJO_FOTOS_URL", "https://w57eve.github.io/fotos")
 
 _cache = {"ts": 0.0, "n": {}}
+# ¿el storage de la web está respondiendo? (lo actualiza /foto en main)
+storage_ok = {"v": True}
 
 
 async def _asegurar():
