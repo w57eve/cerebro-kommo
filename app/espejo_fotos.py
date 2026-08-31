@@ -18,7 +18,10 @@ _cache = {"ts": 0.0, "n": {}}
 
 
 async def _asegurar():
-    if _cache["n"] and time.time() - _cache["ts"] < 3600:
+    # con índice: refresco cada 1 h; sin índice (falló): reintento a los
+    # 10 min — NUNCA en cada llamada (martillaba a GitHub por cada foto)
+    _espera = 3600 if _cache["n"] else 600
+    if _cache["ts"] and time.time() - _cache["ts"] < _espera:
         return
     try:
         async with httpx.AsyncClient(timeout=15) as cli:
@@ -32,7 +35,7 @@ async def _asegurar():
             print(f"[ESPEJO] índice de fotos: {len(j)} SKUs", flush=True)
     except Exception as e:
         print(f"[ESPEJO] índice no disponible: {e}", flush=True)
-        _cache["ts"] = time.time() - 3000   # reintenta en ~10 min
+        _cache["ts"] = time.time()   # reintenta en ~10 min
 
 
 async def cantidad(sku) -> int:

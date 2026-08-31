@@ -673,6 +673,38 @@ async def correr():
           productos.indice_actual().termino_web(
               "Carritos para bebes hasta 350mil gs") == "carritos bebes")
 
+    # ── TIENDA PROVISORIA (31/08: la página oficial caída; /tienda es la
+    # "página" para clientes: categorías + buscador con filtro opcional) ──
+    try:
+        from app import main as _main3
+        from app import tienda as _tienda
+    except ModuleNotFoundError:
+        _main3 = None
+    if _main3:
+        _idx4 = productos.indice_actual()
+        _cts = _tienda.conteos(_idx4)
+        check("tienda: 14 categorías con productos (31/08)",
+              len([c for c, n in _cts.items() if n]) >= 12
+              and _cts.get("Calzados", 0) > 500)
+        _rp = await _main3.tienda_portada()
+        _hp = _rp.body.decode()
+        check("tienda: portada con buscador y fichas (31/08)",
+              "name='q'" in _hp and _hp.count('class="catf"') >= 12
+              and "Todas las categorías" in _hp)
+        _rc = await _main3.tienda_categoria("Mascotas", p=1)
+        check("tienda: categoría paginada (31/08)",
+              _rc.status_code == 200
+              and _rc.body.decode().count('class="c"') == 60)
+        _sin = await _main3.catalogo_dinamico("collar")
+        _con = await _main3.catalogo_dinamico("collar", cat="Mascotas")
+        check("tienda: filtro de categoría en la búsqueda (31/08)",
+              0 < _con.body.decode().count('class="c"')
+              < _sin.body.decode().count('class="c"'))
+        _rb = await _main3.tienda_buscar(q="perfume", cat="Belleza y Cuidado")
+        check("tienda: /buscar enruta con filtro (31/08)",
+              "/c/perfume" in _rb.headers.get("location", "")
+              and "cat=" in _rb.headers.get("location", ""))
+
     if FALLOS:
         print(f"❌ {len(FALLOS)} REGRESIONES: {FALLOS}")
         sys.exit(1)

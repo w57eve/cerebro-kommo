@@ -81,6 +81,16 @@ buscar en este orden, sin frustrar al cliente:
 > Resumen para el agente: catálogo → web → vendedor. Nunca decir "no tenemos" sin
 > antes pasar por la web; y si no está cargado en ningún lado, derivar (no inventar).
 
+### 5.0 TIENDA ONLINE (provisoria, 31/08/2026)
+La página oficial (www.shoppingasia.com.py) está temporalmente fuera de
+servicio y NO se pasa a los clientes por ahora. La "página" que se comparte
+es NUESTRA TIENDA con el catálogo completo, categorías y buscador:
+**https://cerebro-kommo.onrender.com/tienda**
+- Si el cliente pide "la página", "el link de la tienda", "dónde veo todo":
+  pasar ese link.
+- Si un cliente avisa que www.shoppingasia.com.py no le anda: disculpas
+  breves y pasarle la tienda provisoria.
+
 ### 5.1a Marcas y líneas propias (para no confundirse)
 - **GRASEP** es un MODELO de la línea **IRUN** (calzados). Si el cliente pregunta
   por GRASEP (o Graseep/Grassep), corresponde a los calzados IRUN: están en el

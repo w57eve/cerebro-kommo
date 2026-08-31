@@ -459,3 +459,17 @@ del catálogo; correr tras cada sync grande; propone familias nuevas).
 - Ajusté busqueda.py: +"camperita" en grupo campera ("Las camperitas si tienen en Xl" devolvía fajas, lead 24866578) + 1 test — falta doble clic a actualizar_github.bat.
 - "todo terreno"/"grase" siguen apareciendo en sin_candidatos EN PRODUCCIÓN: los sinónimos del 30/08 aún no se deployaron (los 8 pendientes de GitHub incluyen esos fixes).
 - Sigue vivo el problema de listas genéricas: ante "Buenas.." o "gracias" el bot manda la lista repetida cepillo/relojes o saluda de bienvenida en medio de la charla (leads 24870824, 24872746); y a "Quiro el catálogo" mostró fajas random. Propuesta: si el mensaje es saludo/agradecimiento sin pedido, responder corto sin lista.
+
+
+## 0.9 — TIENDA PROVISORIA /tienda (31/08 noche)
+
+Mientras la página oficial esté caída, la "página" para clientes es
+https://cerebro-kommo.onrender.com/tienda — catálogo COMPLETO del cerebro:
+portada con 14 categorías curadas (app/tienda.py), páginas de categoría
+paginadas (/cat/<c>?p=N, 60 por página), buscador propio en TODAS las
+páginas con filtro opcional de categoría (/buscar?q=&cat= -> /c/<q>?cat=),
+tarjetas premium con carrusel (flechas + puntos + contador + clic +
+arrastre, VERIFICADO con clics en navegador real). La base de conocimiento
+(sección 5.0) le dice al bot que esa es la página que se comparte.
+Cuando la web oficial reviva: avisar a Claude para decidir si la tienda
+sigue (a los clientes les puede gustar más) o vuelve la oficial.

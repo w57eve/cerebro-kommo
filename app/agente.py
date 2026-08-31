@@ -35,6 +35,8 @@ _LINKS_BASE = (
     "https://catalogo.shoppingasia.com.py",       # catálogo viejo de pautas
     "https://cerebro-kommo.onrender.com/c/",      # catálogo dinámico propio
     "https://cerebro-kommo.onrender.com/l/",      # lista de candidatos propia
+    "https://cerebro-kommo.onrender.com/tienda",  # tienda provisoria completa
+    "https://cerebro-kommo.onrender.com/cat/",    # categorías de la tienda
     "https://wa.me/",                             # derivación a vendedor
     "https://www.google.com/maps",                # ubicación del local
     "https://maps.google.com", "https://maps.app.goo.gl",

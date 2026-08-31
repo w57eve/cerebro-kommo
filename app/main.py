@@ -552,7 +552,17 @@ async def foto_sku(sku: str, i: int = 0):
 WA_PEDIDOS = "595976915333"   # línea del negocio (la misma del catálogo chico)
 
 
-async def _pagina_catalogo(items, titulo, nota):
+def _opciones_cat(actual=""):
+    import html as _h
+    from . import tienda as _td
+    return "".join(
+        f'<option value="{_h.escape(c)}"'
+        f'{" selected" if c == actual else ""}>{_h.escape(c)}</option>'
+        for c in _td.CATEGORIAS)
+
+
+async def _pagina_catalogo(items, titulo, nota, query="", cat="",
+                           extra_abajo=""):
     import html as _html
     from urllib.parse import quote as _q
 
@@ -604,6 +614,13 @@ header{{position:sticky;top:0;z-index:5;background:linear-gradient(120deg,#d81b6
 color:#fff;padding:13px 16px 11px;box-shadow:0 2px 10px rgba(0,0,0,.18)}}
 header h1{{font-size:1.05rem;font-weight:800;letter-spacing:.3px}}
 header .sub{{font-size:.8rem;opacity:.92;margin-top:2px}}
+.bsc{{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}}
+.bsc input{{flex:2 1 150px;min-width:0;padding:9px 12px;border:0;
+border-radius:10px;font-size:.95rem;background:rgba(255,255,255,.95);color:#222}}
+.bsc select{{flex:1 1 120px;min-width:0;padding:9px 8px;border:0;
+border-radius:10px;font-size:.85rem;background:rgba(255,255,255,.88);color:#333}}
+.bsc button{{padding:9px 16px;border:0;border-radius:10px;font-weight:700;
+background:#fff;color:var(--marca);cursor:pointer;font-size:.9rem}}
 .nota{{padding:12px 16px 4px;color:var(--suave);font-size:.85rem}}
 .g{{display:grid;grid-template-columns:repeat(auto-fill,minmax(164px,1fr));
 gap:12px;padding:12px}}
@@ -641,9 +658,13 @@ font-size:.9rem;color:#fff;background:var(--marca);margin:9px 12px 12px;
 padding:10px 0;border-radius:12px}}
 .btn:active{{transform:scale(.97)}}
 </style></head><body>
-<header><h1>Shopping Asia 🛍️</h1><div class='sub'>{_html.escape(titulo)} · {len(items)} resultado{"s" if len(items) != 1 else ""}</div></header>
+<header><a href='/tienda' style='color:#fff;text-decoration:none'><h1>Shopping Asia 🛍️</h1></a><div class='sub'>{_html.escape(titulo)} · {len(items)} resultado{"s" if len(items) != 1 else ""}</div>
+<form class='bsc' action='/buscar' method='get'>
+<input name='q' type='search' placeholder='Buscá un producto...' value='{_html.escape(query)}'>
+<select name='cat'><option value=''>Todas las categorías</option>{_opciones_cat(cat)}</select>
+<button type='submit'>Buscar</button></form></header>
 <div class='nota'>{_html.escape(nota)} Si un modelo tiene varias fotos, deslizá sobre la imagen.</div>
-<div class='g'>{"".join(tarjetas)}</div>
+<div class='g'>{"".join(tarjetas)}</div>{extra_abajo}
 <script>
 document.querySelectorAll('.c').forEach(function(c){{
   var fs=c.querySelector('.fs'), dots=c.querySelectorAll('.dots i'),
@@ -707,13 +728,16 @@ async def lista_resultados(skus: str):
 
 
 @app.get("/c/{termino}")
-async def catalogo_dinamico(termino: str):
+async def catalogo_dinamico(termino: str, cat: str = ""):
     from . import productos as _prod
+    from . import tienda as _td
     import re as _re2
     termino = _re2.sub(r"[^\w\sáéíóúñü-]", " ", termino)[:60].strip()
     if not termino:
         return HTMLResponse("<h3>Búsqueda vacía.</h3>", status_code=404)
     items = await _prod.buscar(termino, limite=200)
+    if cat:
+        items = _td.filtrar(_prod.indice_actual(), items, cat)
     # prioridad del dueño (31/08): pasar SOLO los que tienen foto (si casi
     # ninguno tiene, se muestran todos para no dejar la página vacía)
     from . import espejo_fotos as _esp2
@@ -728,10 +752,98 @@ async def catalogo_dinamico(termino: str):
         return HTMLResponse(
             "<h3>No encontramos resultados para esa búsqueda.</h3>",
             status_code=404)
+    _tit = f"“{termino}”" + (f" en {cat}" if cat else "")
     return await _pagina_catalogo(
-        items, f"“{termino}”",
+        items, _tit,
         "Tocá \"Hacer pedido\" en el que te guste y volvés al chat con "
-        "todos los datos para concretar al toque.")
+        "todos los datos para concretar al toque.",
+        query=termino, cat=cat)
+
+
+# ── TIENDA PROVISORIA (31/08: la página oficial está caída; esta es la
+# "página" que se pasa a los clientes: catálogo completo + categorías +
+# buscador propio con filtro opcional) ──────────────────────────────────────
+@app.get("/tienda")
+async def tienda_portada():
+    import html as _h
+
+    from . import productos as _prod
+    from . import tienda as _td
+    idx = _prod.indice_actual()
+    if not idx:
+        return HTMLResponse("<h3>Catálogo cargando, probá en unos segundos."
+                            "</h3>", status_code=503)
+    cts = _td.conteos(idx)
+    fichas = "".join(
+        f'<a class="catf" href="/cat/{_h.escape(c)}"><b>{_h.escape(c)}</b>'
+        f'<span>{n} productos</span></a>'
+        for c, n in cts.items() if n)
+    pagina = await _pagina_catalogo([], "", "")
+    # portada: sin tarjetas; inyectamos las categorías en lugar de la grilla
+    cuerpo = (f"<div class='nota'>Bienvenido/a a nuestra tienda 🛍️ Buscá "
+              f"arriba lo que necesités (podés elegir una categoría para "
+              f"afinar) o navegá por secciones:</div>"
+              f"<div class='cats'>{fichas}</div>")
+    h = pagina.body.decode("utf-8")
+    import re as _re3
+    h = _re3.sub(r"<div class='nota'>.*?</div>", "", h, count=1, flags=_re3.S)
+    h = h.replace("<div class='g'></div>", cuerpo)
+    h = h.replace(" ·\xa00 resultados", "").replace(" · 0 resultados", "")
+    h = h.replace("</style>", """
+.cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));
+gap:10px;padding:12px}
+.catf{background:var(--tarjeta);border-radius:14px;padding:16px 14px;
+text-decoration:none;color:var(--texto);box-shadow:0 1px 6px rgba(0,0,0,.09);
+display:flex;flex-direction:column;gap:4px}
+.catf b{font-size:.95rem}
+.catf span{font-size:.75rem;color:var(--suave)}
+</style>""")
+    return HTMLResponse(h, headers={"Cache-Control": "public, max-age=600"})
+
+
+@app.get("/cat/{categoria}")
+async def tienda_categoria(categoria: str, p: int = 1):
+    import html as _h
+
+    from . import productos as _prod
+    from . import tienda as _td
+    idx = _prod.indice_actual()
+    if not idx or categoria not in _td.CATEGORIAS:
+        return HTMLResponse("<h3>Categoría no encontrada. "
+                            "<a href='/tienda'>Volver a la tienda</a></h3>",
+                            status_code=404)
+    items = _td.items_de(idx, categoria)
+    POR_PAG = 60
+    total = len(items)
+    p = max(1, int(p or 1))
+    pag = items[(p - 1) * POR_PAG: p * POR_PAG]
+    nav = "<div class='pgn'>"
+    if p > 1:
+        nav += f"<a href='/cat/{_h.escape(categoria)}?p={p-1}'>&#8249; Anteriores</a>"
+    if p * POR_PAG < total:
+        nav += f"<a href='/cat/{_h.escape(categoria)}?p={p+1}'>Ver más &#8250;</a>"
+    nav += "</div><style>.pgn{display:flex;gap:10px;justify-content:center;padding:6px 0 20px}.pgn a{background:var(--marca);color:#fff;text-decoration:none;padding:10px 18px;border-radius:12px;font-weight:700;font-size:.9rem}</style>"
+    r = await _pagina_catalogo(
+        pag, f"{categoria} ({total})",
+        "Tocá \"Hacer pedido\" en el que te guste y volvés al chat con "
+        "todos los datos.", cat=categoria, extra_abajo=nav)
+    return r
+
+
+@app.get("/buscar")
+async def tienda_buscar(q: str = "", cat: str = ""):
+    from urllib.parse import quote as _q
+
+    from fastapi.responses import RedirectResponse
+    q = (q or "").strip()[:60]
+    cat = (cat or "").strip()
+    if q:
+        url = f"/c/{_q(q)}" + (f"?cat={_q(cat)}" if cat else "")
+    elif cat:
+        url = f"/cat/{_q(cat)}"
+    else:
+        url = "/tienda"
+    return RedirectResponse(url, status_code=302)
 
 
 @app.get("/ultimos-webhooks")
