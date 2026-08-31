@@ -580,7 +580,7 @@ async def _pagina_catalogo(items, titulo, nota, query="", cat="",
         fotos = "".join(
             f'<img src="/foto/{sku}.jpg{("?i=%d" % j) if j else ""}" '
             f'loading="lazy" alt="" '
-            f'onerror="this.remove()">'
+            f'onerror="this.remove();window.__rm&&window.__rm(this)">'
             for j in range(min(n_fotos, 4)))
         puntos = ("<div class='dots'>" + "<i></i>" * min(n_fotos, 4) + "</div>"
                   if n_fotos > 1 else "")
@@ -666,22 +666,33 @@ padding:10px 0;border-radius:12px}}
 <div class='nota'>{_html.escape(nota)} Si un modelo tiene varias fotos, deslizá sobre la imagen.</div>
 <div class='g'>{"".join(tarjetas)}</div>{extra_abajo}
 <script>
+window.__marcas=[];
+window.__rm=function(){{window.__marcas.forEach(function(f){{f();}});}};
 document.querySelectorAll('.c').forEach(function(c){{
   var fs=c.querySelector('.fs'), dots=c.querySelectorAll('.dots i'),
       cnt=c.querySelector('.cnt');
   if(!fs)return;
-  var n=fs.querySelectorAll('img').length;
+  function nImgs(){{return fs.querySelectorAll('img').length;}}
   function idx(){{return Math.round(fs.scrollLeft/fs.clientWidth);}}
   function marca(){{
-    var i=idx();
-    dots.forEach(function(d,j){{d.classList.toggle('on',j===i);}});
-    if(cnt)cnt.textContent=(i+1)+'/'+n;
+    var i=idx(), n=nImgs();
+    dots.forEach(function(d,j){{
+      d.classList.toggle('on',j===i);
+      d.style.display=(j<n)?'':'none';   // si una foto falló, su punto se va
+    }});
+    if(cnt){{cnt.textContent=(i+1)+'/'+n;cnt.style.display=(n>1)?'':'none';}}
+    var pv=c.querySelector('.prev'),nx=c.querySelector('.next');
+    if(pv)pv.style.display=(n>1)?'':'none';
+    if(nx)nx.style.display=(n>1)?'':'none';
   }}
   function go(i){{
+    var n=nImgs(); if(n<1)return;
     i=(i+n)%n;
     fs.scrollTo({{left:i*fs.clientWidth,behavior:'smooth'}});
+    setTimeout(marca,350);
   }}
   marca();
+  window.__marcas.push(marca);
   fs.addEventListener('scroll',function(){{requestAnimationFrame(marca);}});
   var pv=c.querySelector('.prev'), nx=c.querySelector('.next');
   if(pv)pv.addEventListener('click',function(e){{e.preventDefault();go(idx()-1);}});
@@ -692,6 +703,7 @@ document.querySelectorAll('.c').forEach(function(c){{
     if(x0!==null&&Math.abs(e.clientX-x0)>12)drag=true;
   }});
   fs.addEventListener('pointerup',function(e){{
+    var n=nImgs();
     if(n<2){{x0=null;return;}}
     var dx=e.clientX-(x0===null?e.clientX:x0);
     if(drag&&Math.abs(dx)>35){{go(idx()+(dx<0?1:-1));}}
