@@ -578,8 +578,9 @@ async def _pagina_catalogo(items, titulo, nota):
             "¡Hola! Quiero hacer un pedido 🛒\n"
             f"Producto (SKU): {sku}\n"
             f"Artículo: {nombre} — {precio}"))
+        _cls_fs = "fs multi" if n_fotos > 1 else "fs"
         tarjetas.append(
-            f'<div class="c"><div class="fs">{fotos}</div>{puntos}'
+            f'<div class="c"><div class="{_cls_fs}">{fotos}</div>{puntos}'
             f'<div class="tx"><div class="n">{_html.escape(nombre)}</div>'
             f'<div class="p">{precio}</div>'
             f'<div class="s">SKU {sku}</div></div>'
@@ -610,8 +611,10 @@ aspect-ratio:1}}
 .fs img{{flex:0 0 100%;width:100%;object-fit:contain;scroll-snap-align:center;
 background:linear-gradient(160deg,#faf7f9,#f0edf2)}}
 .dots{{display:flex;gap:5px;justify-content:center;padding:6px 0 0}}
-.dots i{{width:6px;height:6px;border-radius:50%;background:var(--suave);
-opacity:.45}}
+.dots i{{width:7px;height:7px;border-radius:50%;background:var(--suave);
+opacity:.45;cursor:pointer}}
+.dots i.on{{opacity:1;background:var(--marca)}}
+.fs.multi img{{cursor:pointer}}
 .tx{{padding:9px 12px 4px;flex:1}}
 .n{{font-size:.84rem;line-height:1.25;font-weight:500;min-height:2.1em}}
 .p{{font-size:1.02rem;font-weight:800;color:var(--verde);margin-top:4px}}
@@ -623,7 +626,30 @@ padding:10px 0;border-radius:12px}}
 </style></head><body>
 <header><h1>Shopping Asia 🛍️</h1><div class='sub'>{_html.escape(titulo)} · {len(items)} resultado{"s" if len(items) != 1 else ""}</div></header>
 <div class='nota'>{_html.escape(nota)} Si un modelo tiene varias fotos, deslizá sobre la imagen.</div>
-<div class='g'>{"".join(tarjetas)}</div></body></html>"""
+<div class='g'>{"".join(tarjetas)}</div>
+<script>
+document.querySelectorAll('.c').forEach(function(c){{
+  var fs=c.querySelector('.fs'), dots=c.querySelectorAll('.dots i');
+  if(!fs)return;
+  function marca(){{
+    if(!dots.length)return;
+    var i=Math.round(fs.scrollLeft/fs.clientWidth);
+    dots.forEach(function(d,j){{d.classList.toggle('on',j===i);}});
+  }}
+  marca();
+  fs.addEventListener('scroll',function(){{requestAnimationFrame(marca);}});
+  fs.addEventListener('click',function(){{
+    var n=fs.querySelectorAll('img').length; if(n<2)return;
+    var i=(Math.round(fs.scrollLeft/fs.clientWidth)+1)%n;
+    fs.scrollTo({{left:i*fs.clientWidth,behavior:'smooth'}});
+  }});
+  dots.forEach(function(d,j){{
+    d.addEventListener('click',function(){{
+      fs.scrollTo({{left:j*fs.clientWidth,behavior:'smooth'}});
+    }});
+  }});
+}});
+</script></body></html>"""
     return HTMLResponse(pagina, headers={"Cache-Control": "public, max-age=600"})
 
 
