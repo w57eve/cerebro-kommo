@@ -309,6 +309,26 @@ async def _responder_charla(lead_id: str):
             texto = (texto + f"\n(foto del cliente: {desc})").strip()
             print(f"[VISION] lead={lead_id} foto -> {desc[:100]!r}", flush=True)
     nombre = await kommo_api.nombre_contacto(ch.get("contact_id"))
+    # IDENTIFICACIÓN DE PAUTA POR UTM (soporte Kommo 31/08): si el webhook no
+    # trajo el anuncio, la ficha del lead puede tener los UTM del link del
+    # anuncio (utm_campaign=<producto>). Un GET barato y sabemos QUÉ pauta es.
+    if not ch.get("ad_id"):
+        try:
+            from . import conocimiento as _cono2
+            _utms = await kommo_api.utms_de_lead(lead_id)
+            if _utms:
+                _ad2 = _cono2.ad_por_utm(_utms)
+                if _ad2:
+                    ch["ad_id"] = _ad2
+                    ch["pauta"] = True
+                    print(f"[UTM] lead={lead_id} anuncio por UTM: {_ad2!r} "
+                          f"({_utms})", flush=True)
+                else:
+                    ch["pauta"] = True   # vino de anuncio, aunque sin mapear
+                    print(f"[UTM] lead={lead_id} utms sin mapa: {_utms}",
+                          flush=True)
+        except Exception as _e:
+            print(f"[UTM] lead={lead_id}: {_e}", flush=True)
     print(f"[CHAT] lead={lead_id} nombre={nombre!r} msgs={len(ch['textos'])} "
           f"texto={texto[:120]!r}", flush=True)
     try:
@@ -453,13 +473,15 @@ _fotos_cache = {}   # sku -> bytes jpeg
 
 
 @app.get("/foto/{sku}.jpg")
-async def foto_sku(sku: str):
+async def foto_sku(sku: str, i: int = 0):
     from fastapi.responses import Response
     from . import productos as _prod
 
     import time as _time
     sku = "".join(c for c in sku if c.isalnum())[:20]
-    v = _fotos_cache.get(sku)
+    i = max(0, min(int(i or 0), 8))
+    _clave = sku if i == 0 else f"{sku}:{i}"
+    v = _fotos_cache.get(_clave)
     if isinstance(v, bytes):
         return Response(content=v, media_type="image/jpeg",
                         headers={"Cache-Control": "public, max-age=86400"})
@@ -467,18 +489,24 @@ async def foto_sku(sku: str):
         if _time.time() - v < 600:    # (sin esto, cada intento re-esperaba
             return JSONResponse({"error": "sin foto"}, status_code=404)
     it = await _prod.por_sku(sku)
-    url = (it or {}).get("imagenes") and it["imagenes"][0] or ""
+    _imgs = (it or {}).get("imagenes") or []
+    url = _imgs[i] if i < len(_imgs) else (_imgs[0] if _imgs and i == 0 else "")
+    if i > 0 and not url:              # foto extra que no existe: 404 directo
+        return JSONResponse({"error": "sin foto"}, status_code=404)
     # Fuentes en orden: storage de la web y, si falla (30/08: el VPS de la
     # web se cayó entero), los espejos en GitHub Pages (no dependen de ese
     # VPS): fotos del depósito en precios.* y el espejo COMPLETO del repo
     # "fotos" (~24.500 miniaturas, se publica con respaldo-fotos-github).
     # Los espejos también cubren SKUs que en la web no tienen foto.
     from . import catalogo_chico as _chico
+    from . import espejo_fotos as _esp
     fuentes = [u for u in (
         url,
-        await _chico.foto_de(sku),   # calzados del catálogo rápido (Cloudflare)
-        f"https://precios.shoppingasia.com.py/fotos_sku/{sku}.jpg",
-        f"https://w57eve.github.io/fotos/{sku}.jpg") if u]
+        # catálogo chico y precios tienen UNA foto por SKU (solo i=0);
+        # el espejo "fotos" es MULTI-FOTO (sku.jpg, sku_2.jpg, ...)
+        (await _chico.foto_de(sku)) if i == 0 else "",
+        f"https://precios.shoppingasia.com.py/fotos_sku/{sku}.jpg" if i == 0 else "",
+        _esp.url_foto(sku, i)) if u]
     import io
 
     import httpx as _httpx
@@ -497,7 +525,7 @@ async def foto_sku(sku: str):
             data = buf.getvalue()
             if len(_fotos_cache) > 800:
                 _fotos_cache.clear()
-            _fotos_cache[sku] = data
+            _fotos_cache[_clave] = data
             return Response(content=data, media_type="image/jpeg",
                             headers={"Cache-Control": "public, max-age=86400"})
         except Exception as e:
@@ -505,17 +533,97 @@ async def foto_sku(sku: str):
     import time as _t2
     if len(_fotos_cache) > 800:
         _fotos_cache.clear()
-    _fotos_cache[sku] = _t2.time()    # caché negativo 10 min
+    _fotos_cache[_clave] = _t2.time()    # caché negativo 10 min
     return JSONResponse({"error": "sin foto"}, status_code=404)
 
 
-# ── Lista de resultados en UN solo link (mini catálogo) ─────────────────────
-# El agente arma /l/<sku,sku,...> con sus candidatos REALES y manda un único
-# link: el cliente ve fotos + nombres + precios juntos, como un catalogo.
+# ── Catálogo dinámico (un solo link, diseño premium) ────────────────────────
+# /l/<sku,sku,...>  candidatos exactos que el agente eligió (máx 8)
+# /c/<término>      TODOS los resultados de una búsqueda (máx 200)
+# Ambos: tarjetas con fotos deslizables por SKU y botón "Hacer pedido" que
+# vuelve al chat con el SKU (mismo formato que el catálogo chico: el webhook
+# ya lo reconoce y concreta).
+WA_PEDIDOS = "595976915333"   # línea del negocio (la misma del catálogo chico)
+
+
+async def _pagina_catalogo(items, titulo, nota):
+    import html as _html
+    from urllib.parse import quote as _q
+
+    from . import espejo_fotos as _esp
+    from . import productos as _prod
+
+    tarjetas = []
+    for it in items:
+        sku = str(it.get("sku"))
+        nombre = it.get("nombre") or ""
+        precio = _prod.precio_texto(it)
+        # cantidad real de fotos: las de la web o las del espejo multi-foto
+        n_fotos = max(1, len(it.get("imagenes") or []),
+                      await _esp.cantidad(sku))
+        fotos = "".join(
+            f'<img src="/foto/{sku}.jpg{("?i=%d" % j) if j else ""}" '
+            f'loading="lazy" alt="" '
+            f'onerror="this.classList.add(\'x\')">'
+            for j in range(min(n_fotos, 4)))
+        puntos = ("<div class='dots'>" + "<i></i>" * min(n_fotos, 4) + "</div>"
+                  if n_fotos > 1 else "")
+        wa = (f"https://wa.me/{WA_PEDIDOS}?text=" + _q(
+            "¡Hola! Quiero hacer un pedido 🛒\n"
+            f"Producto (SKU): {sku}\n"
+            f"Artículo: {nombre} — {precio}"))
+        tarjetas.append(
+            f'<div class="c"><div class="fs">{fotos}</div>{puntos}'
+            f'<div class="tx"><div class="n">{_html.escape(nombre)}</div>'
+            f'<div class="p">{precio}</div>'
+            f'<div class="s">SKU {sku}</div></div>'
+            f'<a class="btn" href="{wa}">🛒 Hacer pedido</a></div>')
+    pagina = f"""<!doctype html><html lang='es'><head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width,initial-scale=1'>
+<title>Shopping Asia — {_html.escape(titulo)}</title><style>
+:root{{color-scheme:light dark;--marca:#d81b60;--verde:#0a8f3c;--fondo:#f5f4f7;
+--tarjeta:#fff;--texto:#1c1c1e;--suave:#8a8a90}}
+@media(prefers-color-scheme:dark){{:root{{--fondo:#121214;--tarjeta:#1e1e22;
+--texto:#f2f2f4;--suave:#9a9aa2}}}}
+*{{box-sizing:border-box;margin:0}}
+body{{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--fondo);
+color:var(--texto);padding-bottom:28px}}
+header{{position:sticky;top:0;z-index:5;background:linear-gradient(120deg,#d81b60,#a4148f);
+color:#fff;padding:13px 16px 11px;box-shadow:0 2px 10px rgba(0,0,0,.18)}}
+header h1{{font-size:1.05rem;font-weight:800;letter-spacing:.3px}}
+header .sub{{font-size:.8rem;opacity:.92;margin-top:2px}}
+.nota{{padding:12px 16px 4px;color:var(--suave);font-size:.85rem}}
+.g{{display:grid;grid-template-columns:repeat(auto-fill,minmax(164px,1fr));
+gap:12px;padding:12px}}
+.c{{background:var(--tarjeta);border-radius:16px;overflow:hidden;display:flex;
+flex-direction:column;box-shadow:0 1px 6px rgba(0,0,0,.09)}}
+.fs{{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;
+scrollbar-width:none;background:linear-gradient(160deg,#faf7f9,#efe9f0);
+aspect-ratio:1}}
+.fs::-webkit-scrollbar{{display:none}}
+.fs img{{flex:0 0 100%;width:100%;object-fit:contain;scroll-snap-align:center;
+background:linear-gradient(160deg,#faf7f9,#f0edf2)}}
+.fs img.x{{visibility:hidden}}
+.dots{{display:flex;gap:5px;justify-content:center;padding:6px 0 0}}
+.dots i{{width:6px;height:6px;border-radius:50%;background:var(--suave);
+opacity:.45}}
+.tx{{padding:9px 12px 4px;flex:1}}
+.n{{font-size:.84rem;line-height:1.25;font-weight:500;min-height:2.1em}}
+.p{{font-size:1.02rem;font-weight:800;color:var(--verde);margin-top:4px}}
+.s{{font-size:.68rem;color:var(--suave);margin-top:2px}}
+.btn{{display:block;text-align:center;text-decoration:none;font-weight:700;
+font-size:.9rem;color:#fff;background:var(--marca);margin:9px 12px 12px;
+padding:10px 0;border-radius:12px}}
+.btn:active{{transform:scale(.97)}}
+</style></head><body>
+<header><h1>Shopping Asia 🛍️</h1><div class='sub'>{_html.escape(titulo)} · {len(items)} resultado{"s" if len(items) != 1 else ""}</div></header>
+<div class='nota'>{_html.escape(nota)} Si un modelo tiene varias fotos, deslizá sobre la imagen.</div>
+<div class='g'>{"".join(tarjetas)}</div></body></html>"""
+    return HTMLResponse(pagina, headers={"Cache-Control": "public, max-age=600"})
+
+
 @app.get("/l/{skus}")
 async def lista_resultados(skus: str):
-    from fastapi.responses import HTMLResponse
-
     from . import productos as _prod
     vistos, items = set(), []
     for s in skus.split(",")[:8]:
@@ -529,33 +637,28 @@ async def lista_resultados(skus: str):
     if not items:
         return HTMLResponse("<h3>No encontramos esos productos.</h3>",
                             status_code=404)
-    import html as _html
-    tarjetas = "".join(
-        f'<div class="c"><img src="/foto/{it["sku"]}.jpg" loading="lazy" '
-        f'onerror="this.closest(\'.c\').classList.add(\'sinfoto\')">'
-        f'<div class="n">{_html.escape(it["nombre"])}</div>'
-        f'<div class="p">{_prod.precio_texto(it)}</div>'
-        f'<div class="s">SKU {it["sku"]}</div></div>'
-        for it in items)
-    pagina = ("<!doctype html><html lang='es'><head><meta charset='utf-8'>"
-              "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-              "<title>Shopping Asia — opciones para vos</title><style>"
-              "body{font-family:system-ui,sans-serif;margin:0;background:#f4f4f6;color:#222}"
-              "h1{font-size:1.15rem;padding:14px 16px 4px}"
-              "p.i{padding:0 16px 10px;margin:0;color:#555;font-size:.9rem}"
-              ".g{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;padding:0 10px 20px}"
-              ".c{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08)}"
-              ".c img{width:100%;aspect-ratio:1;object-fit:contain;background:#fff;display:block}"
-              ".c.sinfoto img{display:none}"
-              ".n{font-size:.85rem;padding:8px 10px 2px;min-height:2.2em}"
-              ".p{font-weight:700;padding:0 10px;color:#0a7d33}"
-              ".s{font-size:.72rem;color:#888;padding:2px 10px 10px}"
-              "</style></head><body><h1>Shopping Asia 🛍️</h1>"
-              "<p class='i'>Estas son las opciones que te comenté. Decime por "
-              "WhatsApp cuál te gusta (nombre o SKU) y seguimos.</p>"
-              f"<div class='g'>{tarjetas}</div></body></html>")
-    return HTMLResponse(pagina,
-                        headers={"Cache-Control": "public, max-age=600"})
+    return await _pagina_catalogo(
+        items, "opciones para vos",
+        "Tocá \"Hacer pedido\" en el que te guste y volvés al chat con "
+        "todos los datos, o decime por WhatsApp el nombre o SKU.")
+
+
+@app.get("/c/{termino}")
+async def catalogo_dinamico(termino: str):
+    from . import productos as _prod
+    import re as _re2
+    termino = _re2.sub(r"[^\w\sáéíóúñü-]", " ", termino)[:60].strip()
+    if not termino:
+        return HTMLResponse("<h3>Búsqueda vacía.</h3>", status_code=404)
+    items = await _prod.buscar(termino, limite=200)
+    if not items:
+        return HTMLResponse(
+            "<h3>No encontramos resultados para esa búsqueda.</h3>",
+            status_code=404)
+    return await _pagina_catalogo(
+        items, f"“{termino}”",
+        "Tocá \"Hacer pedido\" en el que te guste y volvés al chat con "
+        "todos los datos para concretar al toque.")
 
 
 @app.get("/ultimos-webhooks")

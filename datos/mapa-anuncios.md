@@ -12,6 +12,9 @@ sección) y no traen un SKU.
 | 120248330444190576 | CHAMPIONS IRUN | sección (línea) | toda la línea IRUN | Categoría **IRUN** completa. Ofrece catálogo IRUN, acota por talle/color. | chat en redes y WhatsApp |
 | 120246977609390576 | Maquillaje | web | — | Destino **página web**. Suele llegar ya mirando la web; ayuda con dudas/precios y deriva si hace falta. | destino página web |
 | 120248642144860576 | CALZADOS (video general) | genérico | — | Sección **Calzados**. Ofrece catálogo de calzados, pregunta qué busca. | video general de la sección · chat redes y WhatsApp |
+| champion_irun | CHAMPIONES IRUN (campaña "champion irun") | sección (línea) | toda la línea IRUN | Categoría **IRUN** completa: regla fija de calzados (catálogo chico primero, horma chica). | clave UTM: utm_campaign=champion_irun en los anuncios "championes de calidad" (31/08) |
+| calzados_irun_nuevo | CALZADOS IRUN (video, campaña "CALZADOS IRUN NUEVO") | sección (línea) | toda la línea IRUN | Categoría **IRUN** completa: regla fija de calzados (catálogo chico primero, horma chica). | clave UTM: utm_campaign=calzados_irun_nuevo · video · saludo del anuncio ya pasa el catálogo (31/08) |
+| prendas_invierno | OFERTA DE PRENDAS — ropa de invierno | sección | — | Sección **Prendas de invierno** (camperas, buzos, abrigos, frazadas). NO está en el catálogo chico: preguntar qué busca (tipo de prenda, talle) y ofrecer opciones del catálogo grande. | clave UTM: utm_campaign=prendas_invierno (31/08) |
 
 ## Cómo se completa a futuro
 - **ID anuncio:** el de Meta Ads (lo captura Kommo cuando el chat entra desde un

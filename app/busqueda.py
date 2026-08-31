@@ -66,7 +66,6 @@ _GRUPOS = [
     ["auricular", "audifono", "audífono", "handsfree"],
     ["lente", "anteojo", "gafa", "antiparra"],
     ["cartera", "bolso", "bolsa", "morral"],
-    ["campera", "chaqueta", "casaca", "abrigo", "chamarra"],
     ["celular", "telefono", "teléfono", "movil", "móvil", "smartphone"],
     ["pantalon", "pantalón", "jean", "jeans", "vaquero"],
     ["short", "bermuda", "calza"],
@@ -78,6 +77,21 @@ _GRUPOS = [
     ["licuadora", "batidora"],
     ["olla", "cacerola", "cacerol"],
     ["sabana", "sábana"],
+    # auditoría 30/08: "camita" no encontraba CAMA PARA MASCOTA y "frazada"
+    # (0 productos con ese nombre) no llegaba a acolchados/mantas
+    ["camita", "cama"],
+    ["frazada", "acolchado", "manta", "cobija", "colcha"],
+    # mapa del catálogo 30/08: cómo habla el cliente vs cómo se cargó
+    ["vincha", "diadema"],                     # PY dice vincha; carga: diadema
+    ["corpiño", "corpino", "sosten", "bra", "brasier"],
+    ["media", "calcetin", "soquete"],
+    ["shampoo", "champu", "shampu"],
+    ["velador", "lampara"],
+    ["auto", "coche", "vehiculo"],             # carga mezcla auto/coche
+    ["set", "juego", "kit", "conjunto", "pack"],   # SET SABANAS = juego de...
+    ["pollera", "falda"],
+    # monitoreo 31/08: "camperitas" (diminutivo) devolvía fajas — igual que "camita"
+    ["buzo", "campera", "camperita", "chaqueta", "casaca", "abrigo", "chamarra"],
     ["toalla", "toallon", "toallón"],
     ["collar", "gargantilla"],
     ["pulsera", "brazalete", "esclava"],
@@ -91,9 +105,12 @@ _GRUPOS = [
     ["mochila", "mochilas"],
     ["maleta", "maletas", "valija", "valijas", "equipaje"],
     ["pirex", "fuente", "asadera"],
-    ["chutera", "botin", "botines", "chuteras", "taquilla", "taquillas"],
+    # "terreno" (de "todo terreno", 30/08) solo la palabra rara: agregar "todo"
+    # contaminaria frases como "a todo el pais"
+    ["chutera", "botin", "botines", "chuteras", "taquilla", "taquillas",
+     "terreno", "todoterreno", "todoterrenos"],
     # GRASEP es un MODELO de la linea IRUN (asi figura en catalogo y pautas)
-    ["irun", "grasep", "graseep", "grassep", "gracep"],
+    ["irun", "grasep", "graseep", "grassep", "gracep", "grase"],
     ["pegatina", "sticker", "adhesivo", "calcomania"],
     ["turbante", "gorro turbante"],
     ["peluche", "muñeco de peluche"],
@@ -203,6 +220,41 @@ def termino_web(texto: str) -> str:
     return " ".join(out[:4])
 
 
+# ── HIPERÓNIMOS DIRIGIDOS (mapa del catálogo 30/08) ────────────────────────
+# El stock está cargado con nombres precarios y vocablos mezclados: la familia
+# mascota vive repartida en mascota(352)/perro(253)/gato(210)/pets(227)/pet.
+# Expansión DIRIGIDA (no simétrica): "mascota" abarca perro y gato, pero
+# "perro" NO abarca gato. Singular (los tokens ya están singularizados).
+_HIPER = {
+    "mascota": {"perro", "gato", "pet", "pets", "cachorro"},
+    # OJO: "pets" es marca/etiqueta que aparece en nombres de AMBAS especies
+    # ("JUGUETES PARA GATOS PETS"): perro/gato NO expanden a pets, solo
+    # mascota lo hace (si no, buscar perro traía cosas de gato).
+    "perro":   {"mascota", "can", "cachorro"},
+    "perfume": {"perf"},
+    "gato":    {"mascota", "gatito"},
+    "gatito":  {"gato", "mascota"},
+    "cachorro": {"perro", "mascota", "pet", "pets"},
+    "pet":     {"mascota", "pets"},
+    "pets":    {"mascota", "pet"},
+    # infantil vive como INF / KIDS / niño / niña según la época de carga
+    "infantil": {"inf", "kid", "kids", "nino", "nina", "bebe"},
+    "nino":    {"infantil", "inf", "kid", "kids"},
+    "nina":    {"infantil", "inf", "kid", "kids"},
+    "kid":     {"infantil", "inf", "nino", "nina"},
+    "kids":    {"infantil", "inf", "nino", "nina"},
+    "bebe":    {"baby", "bb", "infantil"},
+    "baby":    {"bebe"},
+    # hombre/mujer también viven como caballero/dama/fem/masc
+    "hombre":  {"caballero", "masculino", "masc", "men"},
+    "caballero": {"hombre"},
+    "mujer":   {"dama", "femenino", "fem", "femenina", "lady", "women"},
+    "dama":    {"mujer"},
+    # abreviatura de carga: VDE = verde
+    "verde":   {"vde"},
+}
+
+
 def _lev1(a: str, b: str) -> bool:
     """True si la distancia de edición entre a y b es <= 1 (rápido)."""
     if a == b:
@@ -269,9 +321,10 @@ class Indice:
         """token -> conjunto de palabras a buscar (sinónimos; si no hay match,
         corrección de tipeo por vocabulario)."""
         formas = set(EXP.get(token, {token}))
+        formas |= _HIPER.get(token, set())
         # ¿alguna forma existe en el catálogo?
         if any(f in self.df for f in formas):
-            return formas
+            return {f for f in formas if f in self.df} or formas
         # tolerancia a tipeo: buscar palabra parecida (misma inicial, len±1)
         if len(token) >= 4:
             cerca = [w for w in self.vocab_por_inicial.get(token[:1], [])
@@ -389,6 +442,35 @@ class Indice:
         completos = [f for f in base_lista if f[0]]
         elegidos = completos if completos else base_lista
         elegidos.sort(key=lambda x: (-x[1], -x[2]))
+
+        # RESCATE DEL TÉRMINO MÁS ESPECÍFICO (30/08): si NADA cubre todo el
+        # pedido y otro término es más raro que el primero ("juguetes de
+        # PRINCESAS": princesa manda), sus productos son la intención real:
+        # van PRIMERO, sin la penalización de head.
+        if not completos and n_q == 2:
+            # SOLO consultas cortas tipo "X de Y" ("juguetes de princesas"):
+            # en frases largas con ruido del hilo, una palabra rara del bot
+            # ("perfecto") ganaba y traía SEDAL LISO PERFECTO (30/08 Marina)
+            alt = max(info, key=lambda d: d["idf"] if d["post"] else -1)
+            if (alt is not head and alt["post"]
+                    and alt["idf"] > head["idf"] * 1.15):
+                alt_docs = set(alt["post"]) - head_docs
+                resc = [(c, tot / 0.2, foto, d) if d in alt_docs else
+                        (c, tot, foto, d)
+                        for (c, tot, foto, d) in finales
+                        if d in alt_docs or d in head_docs]
+                # los del término específico PRIMERO (son la intención real)
+                resc.sort(key=lambda x: (x[3] not in alt_docs, -x[1], -x[2]))
+                elegidos = resc
+
+        # LISTA MUY CORTA (30/08: "cafetera eléctrica" devolvía 1): se
+        # completa con los mejores del sustantivo principal.
+        if len(elegidos) < min(3, limite):
+            ya = {d for _, _, _, d in elegidos}
+            resto = sorted((f for f in base_lista if f[3] not in ya),
+                           key=lambda x: (-x[1], -x[2]))
+            elegidos = list(elegidos) + resto
+
         return [self.items[d] for _, _, _, d in elegidos[:limite]]
 
 

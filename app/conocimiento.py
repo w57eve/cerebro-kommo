@@ -30,10 +30,14 @@ def cargar_anuncios() -> dict:
         if not cols:
             continue
         clave = cols[0].strip().rstrip("/")
-        # clave valida: ID numerico de Meta O la URL de la publicacion
+        # clave valida: ID numerico de Meta, URL de la publicacion, o clave
+        # UTM (utm_campaign del anuncio, ej. "champion_irun" — 31/08)
         es_url = ("instagram.com/" in clave or "facebook.com/" in clave
                   or "fb.com/" in clave or clave.startswith("http"))
-        if not (clave.isdigit() or es_url):
+        import re as _re
+        es_utm = bool(_re.fullmatch(r"[a-z0-9_\-]{4,40}", clave.lower())
+                      and not clave.startswith("-"))
+        if not (clave.isdigit() or es_url or es_utm):
             continue  # saltea encabezado y separadores
         cols[0] = clave
         # Formato nuevo (6 col): ID | Representa | Tipo | SKU | Alcance | Notas
@@ -58,6 +62,30 @@ def cargar_anuncios() -> dict:
 # Se cargan una vez al iniciar el proceso.
 BASE = cargar_base()
 ANUNCIOS = cargar_anuncios()
+
+
+def ad_por_utm(utms: dict) -> str:
+    """Matchea las etiquetas UTM del lead contra las claves del mapa de
+    anuncios. En el mapa se pueden poner directamente los valores de
+    utm_campaign/utm_content de cada pauta (ej. clave 'grasep_agosto').
+    Devuelve la clave del anuncio o ''."""
+    import unicodedata as _u
+
+    def _n(s):
+        s = _u.normalize("NFD", str(s).lower().strip())
+        return "".join(c for c in s if _u.category(c) != "Mn")
+
+    if not utms:
+        return ""
+    valores = [_n(v) for v in utms.values() if v]
+    for clave in ANUNCIOS:
+        c = _n(clave)
+        if len(c) < 4:      # claves numéricas cortas: no matchear por texto
+            continue
+        for v in valores:
+            if c == v or (len(v) >= 4 and (c in v or v in c)):
+                return clave
+    return ""
 
 
 def contexto_anuncio(ad_id: str) -> str:

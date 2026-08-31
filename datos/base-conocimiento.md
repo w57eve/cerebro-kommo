@@ -91,6 +91,14 @@ buscar en este orden, sin frustrar al cliente:
   calce 41, los modelos "36-41" lo cubren y los "42-44" no. El stock puntual
   del talle igual lo confirma el vendedor.
 
+### 5.1a-bis Originalidad y numeración de talles (preguntas frecuentes 31/08)
+- **¿Son originales o réplica?** Son **originales** (los clientes preguntan
+  "¿no son réplica?", "¿no tiene cartón adentro?"): responder con seguridad y
+  sin ofenderse que son originales, con cambio dentro de las 48 hs si hay
+  algún inconveniente (ticket + caja + etiquetas).
+- **¿Talles BR o EUR?** La numeración de nuestros calzados es **EUR**
+  (europea). Recordar igualmente la horma chica: conviene un número más.
+
 ### 5.1b CALZADOS de PAUTAS — talles/calce (regla específica, muy frecuente)
 Los calzados que publicitamos en pautas tienen **horma chica**. Flujo obligatorio
 cuando el cliente pregunta por el **talle/calce** de un calzado (ej. "¿tienen 43?",

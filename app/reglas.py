@@ -37,6 +37,7 @@ _IGNORAR = {
     "porfavor", "che", "ok", "saludos", "disculpe", "disculpa", "perdon",
     "amigo", "amiga", "senor", "senora", "seno", "estimado", "estimada",
     "hello", "hi", "ola", "y", "el", "la", "me", "puedo", "podria",
+    "get", "started",   # botón "Get Started" de Facebook (31/08)
 }
 
 
@@ -65,6 +66,12 @@ REGLAS = [
     ),
     (
         ["donde estan", "donde queda", "donde es", "direccion", "ubicacion",
+         # typos frecuentes de clientes (30/08: "DIRRCCION" cayó al buscador
+         # y ofreció rótulas de dirección de auto)
+         "dirrccion", "direcion", "dirreccion", "direccón", "ubicasion",
+         # abreviatura chat "dnd" = dónde (31/08: "hla dnd es" cayó al
+         # buscador sin candidatos)
+         "dnd",
          "ubicados", "como llego", "como llegar", "localizacion", "mapa",
          "maps", "retiro", "retirar", "sucursal", "local"],
         "Estamos en Av. Eusebio Ayala 1451, frente a la comisaría séptima, "

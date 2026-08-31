@@ -372,3 +372,90 @@ Pendientes detectados sin tocar: "taller 42" (typo de talle) respondió con llav
 Suite de regresión completa SIN regresiones (corrida local; avisos [CHICO] 403 son solo por falta de token en local, y los [PRECIO-FIX] del log son del propio test de listas inventadas).
 NO pude leer /aprendizaje ni /diag: web_fetch bloqueado por procedencia y el navegador denegó la navegación (corrida sin usuario presente). Sin datos en vivo no toco código.
 Siguen pendientes de la corrida anterior: "taller 42" (typo de talle), unicode decorado (probar NFKD en _quita_tildes), y buscador?q=mas del saludo de pauta. Falta doble clic a actualizar_github.bat de la corrida previa.
+
+## Monitoreo 30/08/2026 ~08:30
+Suite OK, catálogo OK (49.536 productos). 38 mensajes, fallback 0%, derivación 2,6%.
+Ajusté: typos de "dirección" (DIRRCCION había caído al buscador → ofreció rótulas de auto) en reglas.py, y "terreno" al grupo botín en busqueda.py ("botines todo terreno" daba 0 candidatos). +4 tests en la suite.
+Pendiente sin tocar: (a) "Tienen para mujer en 37" devolvió bicis/gargantillas (falta heredar rubro del hilo), (b) "Ropas kiero" prometió "opciones con fotos" pero el link se borró en la limpieza, (c) con clientes hablando de su salud el bot buscó productos ("sin dormir" → antifaz/bikinis). Falta doble clic a actualizar_github.bat.
+
+
+## 0.7 — PENDIENTE DE DEPLOY (30/08 tarde): esperar que reviva el VPS
+
+El dueño decidió NO desplegar hasta que vuelva la página (VPS DonWeb caído,
+credenciales las maneja PORTA). Todo lo siguiente está TERMINADO Y TESTEADO
+en el repo local (suite: 118 checks verdes) esperando `actualizar_github.bat`:
+
+- Catálogo dinámico premium `/c/<término>` (todos los resultados, botón
+  "Hacer pedido" wa.me/595976915333 igual al catálogo chico, fotos
+  deslizables por SKU) + `/l/<skus>` con el mismo diseño.
+- Buscador sobre el MAPA del catálogo: hiperónimos dirigidos
+  (mascota⊃perro/gato sin cruzarlos, INF=infantil, dama=mujer...), familias
+  PY (vincha=diadema, corpiño=sostén, juego=set=kit, ojota=chancla...),
+  rescate del término más específico, listas cortas completadas,
+  sinónimos camita/cama y frazada/acolchado.
+- Fixes de chats: visión no dispara talle ni ensucia búsqueda (Yeni/Marta),
+  "solo/xg" fuera de búsqueda, "Foto/Imágenes" siguen el hilo (Gustavo),
+  typos shampiones/champiñones/champagne/grazep/knup, palabras META fuera
+  del link del buscador, caché negativo de /foto.
+
+FOTOS LOCALES (31/08): el dueño conectó D:/ECOMMERCE (~20.270 fotos,
+LOTE/<sku>/<sku>.jpg + variantes "(2)") y "D:/Update 16 08 2026" (~4.199,
+<sku>/<sku>,N.jpg multi-foto). generar_espejo.py v2 las junta con el
+respaldo web y el depósito, VERIFICA (SKU en catálogo, imagen sana >=250px,
+sin duplicados) y genera espejo MULTI-FOTO (hasta 4 por SKU + indice.json).
+El cerebro ya lo consume (espejo_fotos.py, /foto?i=N, tarjetas deslizables).
+
+ORDEN DE PUBLICACIÓN (sin esperar el VPS):
+1. Doble clic `respaldo-fotos-github/verificar_fotos.bat` -> revisar informe
+   (cuántas entran, cuáles quedan afuera y por qué).
+2. Crear en github.com el repo `fotos` (Public).
+3. Doble clic `respaldo-fotos-github/primera_publicacion.bat` (genera
+   miniaturas ~20-40 min + push) y activar Pages (Settings -> Pages -> main).
+4. Doble clic `actualizar_github.bat` (despliega cerebro con todo el lote).
+5. Avisar a Claude: verifica /c y /foto en vivo + sondeo de chats.
+6. (Cuando reviva el VPS) `python respaldar_fotos.py` en verificador-precios
+   y doble clic `respaldo-fotos-github/publicar.bat` para sumar las que falten.
+
+## 0.8 — IDENTIFICACIÓN DE PAUTAS POR UTM (31/08, listo en código)
+
+Soporte Kommo confirmó: el "referral" de Meta NO se sincroniza nunca; el
+camino oficial son UTMs en el link del anuncio (guía:
+support.kommo.com/docs/es/haz-seguimiento-de-campaas-de-anuncios-en-whatsapp-con-utms).
+El cerebro ya lee los UTM de la ficha del lead (kommo_api.utms_de_lead) y los
+cruza con mapa-anuncios.md (conocimiento.ad_por_utm). Kommo ya está como
+socio en la cuenta de WhatsApp de Meta (confirmado por el dueño 31/08).
+
+La vinculación Kommo<->Meta YA está completa (los mensajes funcionan;
+confirmado por el dueño 31/08). Falta solo:
+1. En cada anuncio CTWA: link con ?utm_source=facebook&utm_medium=ctwa
+   &utm_campaign=<producto> (grasep, crocs, ...).
+2. Poner ese mismo valor como clave en datos/mapa-anuncios.md.
+3. Verificación con el PRIMER lead que entre de una pauta con UTM: mirar
+   su ficha -> Estadísticas -> Información rastreada; si los campos utm_*
+   aparecen cargados, todo listo. Si quedaran vacíos, la guía menciona un
+   permiso extra de "metadatos de anuncios" en WhatsApp Business -> Cuentas
+   (banner), pero solo revisarlo en ese caso.
+
+Herramienta nueva: `cerebro-kommo> python3 mapear_catalogo.py` (radiografía
+del catálogo; correr tras cada sync grande; propone familias nuevas).
+
+## Monitoreo 30/08/2026 (tarde)
+- Suite 120/120 OK. Catálogo OK (49.536 productos, fetch 200). 173 mensajes, 6,9% derivación, 0 fallback.
+- "todo terreno"/"grasep" daban 0 candidatos EN PRODUCCIÓN (sinónimos del 30/08 aún sin deploy) → falta doble clic a actualizar_github.bat (6 pendientes en cola).
+- Ajusté busqueda.py: +"todoterreno/todoterrenos" (grupo botín) y +"grase" (grupo irun), con 2 tests nuevos en tests_regresion.py.
+
+## Monitoreo 31/08/2026 10:23
+- Suite 122/122 ok, catálogo 49.536 productos, GitHub activo. 372 mensajes, derivación 8,3%, fallback 0.
+- Ajusté: "dnd" (abreviatura de dónde) en FAQ dirección de app/reglas.py + 2 tests — falta doble clic a actualizar_github.bat.
+- Pendiente grande (no tocado): ante mensajes vagos ("más información", "foto y precio?") el buscador devuelve una lista genérica repetida (cepillos/shorts/relojes) y el bot la manda en vez de repreguntar; también hubo 1 pérdida de hilo (globos → estuches de celular, lead 24833664).
+
+## Monitoreo 31/08/2026 (tarde, corrida programada)
+- Suite 122/122 OK (sin regresiones). Sin cambios de código en esta corrida.
+- No pude leer /aprendizaje ni /diag: el entorno de la corrida bloqueó tanto web_fetch (restricción de procedencia de URL) como el navegador (aprobación de sitio pendiente sin usuario presente). Sin datos de intercambios ni estado del catálogo esta vez.
+- Pendientes de ayer siguen en pie: doble clic a actualizar_github.bat (dnd + sinónimos), y el problema de listas genéricas ante mensajes vagos.
+
+## Monitoreo 31/08/2026 17:15 (corrida programada)
+- Suite 123/123 OK. Catálogo OK (49.536 productos, fetch 200). 671 mensajes, derivación 9,2%, fallback 0, GitHub activo (8 pendientes en cola).
+- Ajusté busqueda.py: +"camperita" en grupo campera ("Las camperitas si tienen en Xl" devolvía fajas, lead 24866578) + 1 test — falta doble clic a actualizar_github.bat.
+- "todo terreno"/"grase" siguen apareciendo en sin_candidatos EN PRODUCCIÓN: los sinónimos del 30/08 aún no se deployaron (los 8 pendientes de GitHub incluyen esos fixes).
+- Sigue vivo el problema de listas genéricas: ante "Buenas.." o "gracias" el bot manda la lista repetida cepillo/relojes o saluda de bienvenida en medio de la charla (leads 24870824, 24872746); y a "Quiro el catálogo" mostró fajas random. Propuesta: si el mensaje es saludo/agradecimiento sin pedido, responder corto sin lista.

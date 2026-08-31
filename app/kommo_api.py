@@ -207,3 +207,33 @@ async def diagnostico() -> dict:
     except Exception as e:
         info["error"] = f"{type(e).__name__}: {e}"
     return info
+
+
+async def utms_de_lead(lead_id) -> dict:
+    """Etiquetas UTM/fbclid que Kommo capturó del anuncio de Meta en la ficha
+    del lead (soporte Kommo 31/08: el 'referral' no se sincroniza, pero los
+    UTM del link del anuncio SÍ — van en 'Información rastreada').
+    Devuelve {campo: valor} solo con los que tengan valor."""
+    if not listo() or not lead_id:
+        return {}
+    try:
+        async with httpx.AsyncClient(timeout=10) as cli:
+            r = await cli.get(f"{_base()}/api/v4/leads/{lead_id}",
+                              headers=_headers())
+            if r.status_code != 200:
+                return {}
+            j = r.json()
+        out = {}
+        for f in (j.get("custom_fields_values") or []):
+            nombre = (f.get("field_code") or f.get("field_name") or "").lower()
+            if not any(k in nombre for k in ("utm", "fbclid", "referrer",
+                                             "gclid")):
+                continue
+            vals = f.get("values") or []
+            v = str((vals[0] or {}).get("value") or "").strip() if vals else ""
+            if v:
+                out[nombre] = v
+        return out
+    except Exception as e:
+        print(f"[KOMMO] utms_de_lead({lead_id}): {e}", flush=True)
+        return {}

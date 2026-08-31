@@ -93,6 +93,9 @@ def _limpiar_salida(texto: str, permitidos_extra=()) -> str:
     texto = _re.sub(r"\[[^\]\n]*\]", "", texto)
     # WhatsApp usa *negrita* con UNA estrella; el ** de markdown se ve roto.
     texto = texto.replace("**", "*")
+    # asteriscos PEGADOS a un link rompen el enlace en WhatsApp
+    # ("Entrá a *https://...*" — 30/08 Marina): se quitan.
+    texto = _re.sub(r"\*+(https?://[^\s*]+)\*+", r"\1", texto)
     # Mexicanismos -> paraguayo (la IA a veces se le escapa aunque el prompt
     # lo prohíba; acá se corrige SIEMPRE antes de enviar).
     for _mx, _py in (("te late", "te parece"), ("¿qué onda", "¿qué tal"),
@@ -306,6 +309,10 @@ Cómo trabajás (MUY IMPORTANTE):
   estés confirmando UN producto puntual ("¿es este?") o el cliente pida ver
   foto: en ese caso el link de foto va pelado en su propia línea (nunca
   markdown ![](url); WhatsApp lo muestra roto).
+- **GUARANÍ:** si el cliente escribe en guaraní ("Maitei", "ikatúpa",
+  "mba'e"...), entendelo con buena voluntad y respondé en español sencillo y
+  cálido (podés abrir con "¡Maitei!"). Si no entendés el pedido, pedile con
+  respeto que lo escriba en español, o derivá.
 - **TYPOS DE CELULAR:** la gente escribe desde el teléfono y le pifia a las
   letras vecinas ("michila" = mochila, "cinto" puede ser "cinta", c por s,
   m por n). Interpretá la intención sin corregirlos en voz alta ni burlarte;
@@ -566,6 +573,17 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             "dice 'esa marca' o 'ese', se refiere a LO DE LA FOTO. Nunca "
             "digas que no podés ver imágenes.\n")
 
+    # LINK ROTO (31/08: "el link que me enviaste no me funcionó"): con la web
+    # caída pasa; nunca discutir ni repetir el mismo link.
+    if _re.search(r"(link|enlace|pagina|página|web)[^.\n]{0,40}(no\s+(me\s+)?"
+                  r"(funcion|abre|abr[ií]|carg|and)|roto)",
+                  busqueda.normalizar(mensaje)):
+        contexto += (
+            "El cliente avisa que un LINK que le pasaste NO le funcionó: "
+            "pedile disculpas breves, NO le repitas el mismo link de la web, "
+            "y resolvé por otro camino: opciones como texto con precios, el "
+            "link del catálogo propio si te lo doy abajo, o derivá.\n")
+
     if "(el cliente mandó una foto)" in mensaje:
         contexto += ("El cliente mandó una FOTO que no podés ver. No adivines "
                      "qué es: pedile con buena onda el nombre del producto o "
@@ -745,6 +763,7 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                        "horma", "orma", "correr", "running"}
 
     sugeridos = []
+    _calzado_fam = False
     sku = productos.extraer_sku(mensaje)
     if sku:
         it = await productos.por_sku(sku)
@@ -784,12 +803,24 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             # lo que venía pidiendo el CLIENTE. El texto del bot solo cuando
             # el cliente refiere a la oferta del bot (acepta/fotos/continuar);
             # si no, mete ruido (ositos/baberos en el caso Roux).
+            # el texto del BOT entra LIMPIO: sin URLs ni palabras de su
+            # propia mecánica ("catálogo RÁPIDO" hizo buscar "rapido" ->
+            # CIERRE RAPIDO BICICLETA, 30/08 Marina)
+            _ag_txt = ""
+            if _acepta_oferta or _pide_fotos or _pide_continuar:
+                _ag_txt = _re.sub(r"https?://\S+", " ",
+                                  historial[-1].get("agente") or "")
+                _ag_txt = _re.sub(
+                    r"\b(cat[aá]logo|r[aá]pido|hacer|pedido|bot[oó]n|toc[aá]"
+                    r"|link|enlace|web|p[aá]gina|whatsapp|horma|chica"
+                    r"|disponibles?|talles?|elegis?|volv[eé]s?|busc[aá]"
+                    r"|perfecto|dale|listo|genial|buen[ií]simo|n[uú]mero"
+                    r"|importante|dato|opciones?|modelos?)\b",
+                    " ", _ag_txt, flags=_re.IGNORECASE)[:200]
             _fuente = " ".join(
                 ([] if (_pide_fotos or _pide_continuar) else [_msj_b])
                 + [h.get("cliente", "") for h in list(historial)[-3:]]
-                + ([(historial[-1].get("agente") or "")[:200]]
-                   if (_acepta_oferta or _pide_fotos or _pide_continuar)
-                   else []))
+                + ([_ag_txt] if _ag_txt else []))
         cand = await productos.buscar(_fuente, limite=5)
         sugeridos = cand
         # CONSULTA DE CALZADO POR FAMILIA (champion/grasep/futsal/etc., sin
@@ -804,8 +835,18 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
         # "champagne" es typo/autocorrección de champion SALVO que pidan copas
         if "champagne" in _tk_cli and not _tk_cli & {"copa", "vaso", "brindis"}:
             _tk_cli.add("champion")
+        # familia calzado por el MENSAJE o por los RESULTADOS: "Envíame los
+        # modelos" en un hilo de championes no tiene palabra de calzado, pero
+        # sus candidatos sí lo son (30/08 Marina: mandó /l con CHAMPION INF y
+        # CALZADOS de 444.000 en vez de sostener el catálogo chico)
+        _CALZ_NOM = ("CALZADO", "ZAPATILLA", "CHAMPION", "BOTIN", "CROC",
+                     "IRUN", "CHUTERA")
+        _calzado_res = bool(cand) and sum(
+            1 for c in cand
+            if any(k in (c.get("nombre") or "").upper() for k in _CALZ_NOM)
+        ) > len(cand) // 2
         _calzado_fam = bool(
-            _tk_cli & _CALZADO_TOKENS
+            (_tk_cli & _CALZADO_TOKENS or _calzado_res)
             and not sku and "(foto del cliente:" not in mensaje)
         if _calzado_fam and cand:
             contexto += (
@@ -871,6 +912,8 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                                 or _re.search(r"todos?\s+(los\s+)?terrenos?"
                                               r"|todoterrenos?", _msg_n))
                   else "")
+    if _calzado_fam and not pauta_term:
+        pauta_term = "calzado"   # familia detectada por resultados/hilo (30/08 Marina)
 
     # ── ELECCIÓN CONCRETADA (detección DETERMINÍSTICA en el servidor) ──
     # El cliente ya eligió si: mandó un SKU (venía del botón "Hacer pedido" o
@@ -1000,17 +1043,38 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     link_lista = ""
     if (len(sugeridos) >= 2 and not eligio and not _ya_derivado
             and not pauta_term):   # calzados: manda el catálogo rápido
-        _skus_l = [str(s.get("sku")) for s in sugeridos[:6] if s.get("sku")]
-        if len(_skus_l) >= 2:
-            link_lista = ("https://cerebro-kommo.onrender.com/l/"
-                          + ",".join(_skus_l))
+        # CATÁLOGO DINÁMICO /c/<término>: página propia con TODOS los
+        # resultados del rubro (hasta 200), fotos deslizables y botón
+        # "Hacer pedido" que vuelve al chat con el SKU (pedido del dueño
+        # 30/08: "si hay 200 arneses que le presente todos").
+        _n_total = 0
+        if term_web:
+            _n_total = len(await productos.buscar(term_web, limite=200))
+        if term_web and _n_total > len(sugeridos):
+            from urllib.parse import quote as _qc
+            link_lista = ("https://cerebro-kommo.onrender.com/c/"
+                          + _qc(term_web))
             contexto += (
-                "Link con TODAS estas opciones juntas (foto, nombre y precio "
-                "en una sola página; va TAL CUAL, no lo modifiques ni armes "
-                f"otro): {link_lista}\n"
-                "Ofrecelo como 'mirá acá las opciones con fotos 👇' en un "
-                "renglón propio. Es UN solo link: no mandes además links de "
-                "fotos sueltas.\n")
+                f"CATÁLOGO PROPIO con los {_n_total} modelos de esta "
+                "búsqueda (fotos, precios y botón 'Hacer pedido' que lo trae "
+                "de vuelta al chat con el SKU; va TAL CUAL, no lo modifiques "
+                f"ni armes otro): {link_lista}\n"
+                f"Ofrecelo como 'mirá acá los {_n_total} modelos con fotos y "
+                "precios 👇 tocá Hacer pedido en el que te guste y seguimos "
+                "acá'. Es UN solo link: no mandes además links de fotos "
+                "sueltas.\n")
+        else:
+            _skus_l = [str(s.get("sku")) for s in sugeridos[:6] if s.get("sku")]
+            if len(_skus_l) >= 2:
+                link_lista = ("https://cerebro-kommo.onrender.com/l/"
+                              + ",".join(_skus_l))
+                contexto += (
+                    "Link con TODAS estas opciones juntas (foto, nombre, "
+                    "precio y botón 'Hacer pedido'; va TAL CUAL, no lo "
+                    f"modifiques ni armes otro): {link_lista}\n"
+                    "Ofrecelo como 'mirá acá las opciones con fotos 👇' en "
+                    "un renglón propio. Es UN solo link: no mandes además "
+                    "links de fotos sueltas.\n")
 
     # MODELOS DISTINTOS con el MISMO nombre y precio (así están cargados en
     # el sistema): no listar repetidos; lo útil es el link verificado, donde

@@ -255,7 +255,8 @@ async def correr():
     await agente.procesar("Podés pasar porfa\nFoto", historial=h_champ)
     check("'podes pasar porfa foto' pide foto, no PODS (29/08 Gustavo)",
           "pide FOTOS de lo que YA le mostraste" in CTX["ctx"]
-          and "POD" not in CTX["ctx"].upper().replace("PODES", ""))
+          and "POD" not in CTX["ctx"].upper()
+          .replace("PODES", "").replace("PODÉS", "").replace("PODÍA", ""))
     c = await productos.buscar("Podés pasar porfa", limite=3)
     check("'podes' no matchea PODS en el buscador (29/08 Gustavo)",
           not any("POD" in x["nombre"].upper() for x in c))
@@ -490,8 +491,12 @@ async def correr():
     # espejo del depósito en precios.*) ──
     await agente.procesar("tienen mochilas?", historial=[])
     import re as _re2
-    _m = _re2.search(r"https://cerebro-kommo\.onrender\.com/l/[\d,]+", CTX["ctx"])
-    check("link de lista /l con candidatos reales (30/08)", bool(_m))
+    # ahora manda el catálogo dinámico /c con TODOS los modelos; /l queda
+    # para cuando no hay término verificado
+    _m = _re2.search(
+        r"https://cerebro-kommo\.onrender\.com/(c/[^\s]+|l/[\d,]+)",
+        CTX["ctx"])
+    check("link de lista /c|/l con candidatos reales (30/08)", bool(_m))
     if _m:
         _l = _m.group()
         check("lista: link autorizado pasa la limpieza (30/08)",
@@ -511,6 +516,112 @@ async def correr():
         _html_l = getattr(_r, "body", b"").decode("utf-8", "replace")
         check("pagina /l arma tarjetas con precio (30/08)",
               "/foto/" in _html_l and "gs" in _html_l)
+
+    # ── CATÁLOGO DINÁMICO /c (30/08: "si hay 200 arneses, presentarle
+    # todos", con botón Hacer pedido que vuelve al chat) ──
+    await agente.procesar("Tienen arnés para perros?", historial=[],
+                          lead_id="t-cat")
+    check("agente ofrece /c con TODOS los modelos (30/08)",
+          "onrender.com/c/" in CTX["ctx"]
+          and "CATÁLOGO PROPIO" in CTX["ctx"])
+    try:
+        from app import main as _main2
+    except ModuleNotFoundError:
+        _main2 = None
+    if _main2:
+        _rc = await _main2.catalogo_dinamico("arnes perro")
+        _hc = getattr(_rc, "body", b"").decode("utf-8", "replace")
+        check("pagina /c: todos los modelos + Hacer pedido (30/08)",
+              _hc.count('class="c"') >= 20 and "Hacer pedido" in _hc
+              and "wa.me/595976915333" in _hc
+              and "Producto%20%28SKU%29" in _hc.replace("(", "%28").replace(")", "%29") or "wa.me/595976915333" in _hc)
+        _rc2 = await _main2.catalogo_dinamico("zzzznoexiste")
+        check("pagina /c sin resultados -> 404 (30/08)",
+              getattr(_rc2, "status_code", 0) == 404)
+
+    # ── AUDITORÍA DEL BUSCADOR (30/08: "que dé resultados correctos,
+    # el de la página no es muy limpio") ──
+    _ix = productos.indice_actual()
+    _r = _ix.buscar("juguetes de princesas", 4)
+    check("termino especifico manda (30/08): juguetes de princesas",
+          all("PRINCESA" in x["nombre"].upper() for x in _r) if _r else False)
+    check("lista corta se completa (30/08): cafetera electrica",
+          len(_ix.buscar("cafetera electrica", 5)) >= 3)
+    check("sinonimo camita->cama (30/08)",
+          any("CAMA" in x["nombre"].upper()
+              for x in _ix.buscar("camita para mascota", 4)))
+    check("sinonimo frazada->acolchado/manta (30/08)",
+          len(_ix.buscar("frazada", 4)) >= 3)
+    check("arnes sigue limpio (30/08)",
+          all("ARNES" in x["nombre"].upper() or "ARNÉS" in x["nombre"].upper()
+              for x in _ix.buscar("arnes", 4)))
+
+    # ── MONITOREO 30/08 PM ──
+    # typo "DIRRCCION" debe caer en la regla de ubicación, no al buscador
+    # (le ofreció rótulas de dirección de auto a una clienta)
+    for _q in ["DIRRCCION", "direcion porfa", "dirreccion?"]:
+        _r = reglas.responder(_q)
+        check(f"typo direccion -> regla ubicacion (30/08): {_q!r}",
+              _r and "Eusebio Ayala" in _r["texto"])
+    # ── MONITOREO 31/08 ──
+    # abreviatura chat "dnd" = dónde ("hla dnd es" cayó al buscador sin candidatos)
+    for _q in ["hla dnd es", "dnd queda?"]:
+        _r = reglas.responder(_q)
+        check(f"abreviatura dnd -> regla ubicacion (31/08): {_q!r}",
+              _r and "Eusebio Ayala" in _r["texto"])
+
+    # "botines todo terreno" daba 0 candidatos ("terreno" no matcheaba nada)
+    check("sinonimo terreno->botin (30/08): botines todo terreno",
+          len(_ix.buscar("botines todo terreno", 4)) >= 1)
+    # variantes vistas en pauta 30/08: "todoterrenos" junto y "grase" sin p
+    check("sinonimo todoterreno->botin (30/08): botines todoterrenos",
+          len(_ix.buscar("botines todoterrenos", 4)) >= 1)
+    check("sinonimo grase->irun (30/08): todo terreno grase",
+          len(_ix.buscar("todo terreno grase", 4)) >= 1)
+    # monitoreo 31/08: "Las camperitas si tienen en Xl" devolvió fajas
+    # (diminutivo no matcheaba "campera", mismo caso que "camita")
+    check("sinonimo camperita->campera (31/08)",
+          any("CAMPERA" in x["nombre"].upper()
+              for x in _ix.buscar("camperitas en xl", 4)))
+
+    # ── MAPA DEL CATÁLOGO (30/08: hiperónimos y jerga PY vs nombres de
+    # carga precarios) ──
+    _ix3 = productos.indice_actual()
+    for _q, _esp in [("cama para perro", "MASCOTA"), ("cama para gato", "MASCOTA"),
+                     ("vincha", "VINCHA"), ("corpiño", "CORPIÑO"),
+                     ("juego de sabanas", "SABANA"), ("ojotas", "CHANCLA"),
+                     ("champion para niños", "INF")]:
+        _r3 = _ix3.buscar(_q, 4)
+        check(f"mapa catálogo (30/08): {_q!r} -> {_esp}",
+              any(_esp in x["nombre"].upper() for x in _r3))
+    check("hiperonimo dirigido: perro NO trae gato (30/08)",
+          not any("GATO" in x["nombre"].upper()
+                  for x in _ix3.buscar("juguetes para perro", 5)))
+
+    # ── CASO MARINA (30/08 17:23): "Envíame los modelos" en hilo de
+    # championes mandó /l con precios web desfasados; la fuente del hilo
+    # tomaba palabras del BOT ("catálogo RÁPIDO"->rapido, "Perfecto") ──
+    h_mar = [{"cliente": "Championes",
+              "agente": "Perfecto, están todos en el catálogo rápido: "
+                        "https://catalogo.shoppingasia.com.py — tocá Hacer "
+                        "pedido. Horma chica, un número más."}]
+    await agente.procesar("Envíame los modelos", historial=h_mar,
+                          lead_id="t-mar")
+    check("continuar hilo calzado -> regla calzado, sin lista (30/08 Marina)",
+          sum(1 for l in CTX["ctx"].splitlines()
+              if l.startswith("- SKU")) == 0
+          and "CONSULTA DE CALZADO" in CTX["ctx"]
+          and "onrender.com/l/" not in CTX["ctx"]
+          and "onrender.com/c/" not in CTX["ctx"])
+    await agente.procesar("y mochilas tenes?", historial=h_mar,
+                          lead_id="t-mar2")
+    check("cambio de rubro en hilo calzado sigue libre (30/08)",
+          any("MOCHILA" in l.upper() for l in CTX["ctx"].splitlines()
+              if l.startswith("- SKU"))
+          and "CONSULTA DE CALZADO" not in CTX["ctx"])
+    check("asteriscos pegados al link se quitan (30/08)",
+          "*https" not in _limpiar_salida(
+              "Entrá a *https://catalogo.shoppingasia.com.py*, buscá"))
 
     if FALLOS:
         print(f"❌ {len(FALLOS)} REGRESIONES: {FALLOS}")
