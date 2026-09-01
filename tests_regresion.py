@@ -591,6 +591,31 @@ async def correr():
         check(f"'{_q}' sigue yendo al buscador (01/09)",
               reglas.responder(_q) is None)
 
+    # "no encontré" es FEEDBACK, no producto (buscó "no" -> Pasta NO Tóxica);
+    # y el typo "lmpara" debe seguir encontrando lámparas
+    _h_lamp = [{"cliente": "Lmpara",
+                "agente": "Mirá los modelos: https://catalogo.shoppingasia.com.py/c/lampara"}]
+    for _q in ["no", "no encontre", "No encontré nada", "no me sale",
+               "no carga la pagina", "no funciona el link", "nada"]:
+        await agente.procesar(_q, historial=_h_lamp)
+        check(f"feedback negativo no busca producto (01/09): {_q!r}",
+              "NO ENCONTRÓ" in CTX["ctx"]
+              and not [l for l in CTX["ctx"].splitlines()
+                       if l.startswith("- SKU")])
+    for _q in ["no tenes camperas?", "no tienen lamparas mas grandes?"]:
+        await agente.procesar(_q, historial=_h_lamp)
+        check(f"consulta real con 'no' sigue buscando (01/09): {_q!r}",
+              "NO ENCONTRÓ" not in CTX["ctx"]
+              and [l for l in CTX["ctx"].splitlines()
+                   if l.startswith("- SKU")])
+    _idx01 = productos.indice_actual()
+    check("typo 'lmpara' encuentra lamparas (01/09)",
+          any("LAMPARA" in x["nombre"].upper()
+              for x in _idx01.buscar("lmpara", 3)))
+    check("'pasta no toxica' sigue encontrandose sin 'no' (01/09)",
+          any("PASTA" in x["nombre"].upper()
+              for x in _idx01.buscar("pasta no toxica", 3)))
+
     # ── MONITOREO 01/09 ──
     # "me sale totalmente otra cosa en el link que me mandan" (queja de Camila)
     # caía en la FAQ de envíos por la clave suelta "mandan" -> pérdida de hilo

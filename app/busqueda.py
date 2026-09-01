@@ -49,6 +49,9 @@ STOP = {
     # "Podés pasar porfa" matcheaba PODS (ofreció vapes a Gustavo — 29/08)
     "podes", "podrias", "puedes", "puede", "podras", "pasame", "pasar",
     "pasas", "pasan", "foto", "fotos", "imagen", "imagenes",
+    # 01/09: "no encontre" buscó "no" y ofreció Pasta NO Tóxica; "no" jamás
+    # es el producto (los nombres con "No" matchean por sus otras palabras)
+    "no", "encontre", "encuentro", "encontro",
 }
 
 # ── Nombres que indican ACCESORIO (no el producto en sí). Si el nombre empieza

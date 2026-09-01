@@ -563,6 +563,28 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             "no queda claro a qué se refiere, UNA repregunta o derivá. "
             "PROHIBIDO ofrecer productos sueltos del catálogo acá.\n")
 
+    # "no encontré", "no", "no me sale", "no hay nada": el cliente da
+    # FEEDBACK de que lo anterior no le funcionó — NO es un producto
+    # (01/09: "no encontre" buscó "no" y ofreció Pasta NO Tóxica).
+    _feedback_no = bool(historial) and bool(_re.fullmatch(
+        r"\s*(no|nada)"
+        r"(\s+(lo|la|los|las|me|se|le))?"
+        r"(\s+(encontr\w*|encuentro|hay|sal[eig]\w*|aparec\w*|carg\w*|"
+        r"abr[eio]\w*|funcion\w*|anda|and[ao]\w*|veo|ve|vi|pude|puedo|"
+        r"est[a]\w*|busq\w*|busco|figura))?"
+        r"(\s+(nada|eso|nomas|la palabra(\s+\w+)?|esa palabra|el link|"
+        r"la pagina|la lista|la foto|las fotos))?"
+        r"[.!?\s]*", busqueda.normalizar(mensaje)))
+    if _feedback_no:
+        contexto += (
+            "OJO: el cliente dice que NO ENCONTRÓ / no le funcionó lo "
+            "anterior (link, lista o búsqueda). NO es un producto para "
+            "buscar. Pedile disculpas breves y resolvé: mirá el hilo, "
+            "volvé a ofrecer lo que buscaba de forma concreta (el link de "
+            "nuevo, o preguntá QUÉ producto exacto quería para buscárselo "
+            "vos), y si ya falló dos veces derivá con [DERIVAR]. PROHIBIDO "
+            "ofrecer productos que no tengan que ver con el hilo.\n")
+
     # "El de 164": referencia a un PRECIO de la lista que el bot mandó antes.
     _ref_lista = None
     _m_ref = _re.fullmatch(
@@ -818,6 +840,8 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
         else:
             contexto += (f"El SKU {sku} no está en el catálogo. No afirmes que "
                          "existe; ofrecé buscarlo o derivar.\n")
+    elif _feedback_no:
+        pass   # "no encontré/no me sale": feedback, no producto (01/09)
     elif _deixis:
         pass   # señala la foto/lo anterior: la búsqueda de texto solo mete ruido
     elif _jerga_pauta:

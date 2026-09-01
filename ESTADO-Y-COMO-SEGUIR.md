@@ -552,3 +552,8 @@ reviva para el salto de cobertura (~14.800 SKUs nuevos con foto).
 - 135 mensajes, 5 derivados (3,7%), 0 fallbacks. Catálogo OK (49.536 prod, fetch 200). Suite 136/136.
 - Ajusté: (1) reglas.py — "mandan" suelto en FAQ envíos capturaba "el link que me mandan" (queja de Camila, lead 24919560) y respondía envíos: ahora "mandan a/hasta/por". (2) busqueda.py — grupo pecera/pescera/pesera (typo traía cañas de pescar). +5 tests. Falta doble clic a actualizar_github.bat.
 - Pendiente grande (no toqué): links de buscador con frase larga — "web esta caida" generó /c/pelo%20tu%20web%20caida con 200 modelos random (lead 24922774). Habría que filtrar palabras no-producto antes de armar el link.
+
+## Monitoreo 01/09/2026 (tarde)
+- Suite de regresión: ✅ 158 ok, sin regresiones (hubo que instalar httpx en el sandbox, no afecta prod).
+- NO pude revisar /aprendizaje ni /diag: el fetch web quedó bloqueado por política del entorno y el navegador denegó cerebro-kommo.onrender.com sin usuario presente para aprobar. Sin datos de intercambios reales ni verificación de catálogo en esta corrida.
+- Sin cambios de código. Pendiente de la corrida anterior sigue: doble clic a actualizar_github.bat y filtro de palabras no-producto en links del buscador.
