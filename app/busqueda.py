@@ -115,6 +115,9 @@ _GRUPOS = [
     # GRASEP es un MODELO de la linea IRUN (asi figura en catalogo y pautas)
     ["irun", "grasep", "graseep", "grassep", "gracep", "grase"],
     ["pegatina", "sticker", "adhesivo", "calcomania"],
+    # monitoreo 01/09: "pescera"/"pescers" (typo de pecera) traía cañas de
+    # pescar; en catálogo figura "pecera"
+    ["pecera", "pescera", "pesera", "pescers"],
     ["turbante", "gorro turbante"],
     ["peluche", "muñeco de peluche"],
     ["juguete", "jugueteria"],

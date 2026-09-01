@@ -88,8 +88,11 @@ REGLAS = [
         "efectivo o tarjeta al recibir. ¿Te ayudo con tu pedido?",
     ),
     (
-        ["envio", "envios", "delivery", "mandan", "hacen envio", "cuanto sale el envio",
-         "envian", "a todo el pais"],
+        # 01/09: "mandan" suelto capturaba "el link que me mandan" (queja de
+        # cliente) y respondía la FAQ de envíos -> pérdida de hilo. Se dejan
+        # solo formas con destino ("mandan a X", "mandan hasta X").
+        ["envio", "envios", "delivery", "mandan a", "mandan hasta", "mandan por",
+         "hacen envio", "cuanto sale el envio", "envian", "a todo el pais"],
         "Sí, hacemos envíos. Desde una compra mínima de 100.000 gs: hasta 15 km "
         "cuesta 20.000 gs y sube 5.000 gs cada 5 km más. Desde 150.000 gs el "
         "envío es gratis hasta 15 km. También enviamos a todo el país por "

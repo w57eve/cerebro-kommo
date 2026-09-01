@@ -579,6 +579,22 @@ async def correr():
         check(f"abreviatura dnd -> regla ubicacion (31/08): {_q!r}",
               _r and "Eusebio Ayala" in _r["texto"])
 
+    # ── MONITOREO 01/09 ──
+    # "me sale totalmente otra cosa en el link que me mandan" (queja de Camila)
+    # caía en la FAQ de envíos por la clave suelta "mandan" -> pérdida de hilo
+    _r = reglas.responder("me sale totalmente otra cosa en el link que me mandan")
+    check("queja por link NO dispara FAQ envios (01/09)",
+          not (_r and "hacemos env" in _r["texto"]))
+    # las preguntas reales de envío con destino siguen matcheando
+    for _q in ["mandan a luque?", "mandan hasta encarnacion?", "hacen delivery?"]:
+        _r = reglas.responder(_q)
+        check(f"pregunta de envio sigue en FAQ (01/09): {_q!r}",
+              _r and "hacemos env" in _r["texto"])
+    # typo "pescera" (= pecera) traía cañas de pescar; debe expandir a pecera
+    check("sinonimo pescera->pecera (01/09)",
+          "pecera" in busqueda.EXP.get("pescera", set())
+          and "pecera" in busqueda.EXP.get("pesera", set()))
+
     # "botines todo terreno" daba 0 candidatos ("terreno" no matcheaba nada)
     check("sinonimo terreno->botin (30/08): botines todo terreno",
           len(_ix.buscar("botines todo terreno", 4)) >= 1)
@@ -764,6 +780,38 @@ async def correr():
         check("portada editorial: destacadas + serif + ayuda (31/08)",
               "Piezas destacadas" in _hp2 and "Cormorant" in _hp2
               and "/vendedor" in _hp2 and _hp2.count('class="catf"') >= 12)
+
+    # ── RAÍZ CERRADA: sin clave → tienda; con clave → probador (01/09) ──
+    if _main3:
+        class _ReqStub:
+            def __init__(self, q):
+                self.query_params = q
+                self.headers = {}
+        _cl_orig = _main3._CLAVE_PANEL
+        _main3._CLAVE_PANEL = "clave-test"
+        try:
+            _r0 = await _main3.raiz(_ReqStub({}))
+            check("raíz sin clave redirige a /tienda (01/09)",
+                  getattr(_r0, "status_code", 0) == 302
+                  and "/tienda" in _r0.headers.get("location", ""))
+            _r1 = await _main3.raiz(_ReqStub({"clave": "clave-test"}))
+            check("raíz con clave muestra el probador (01/09)",
+                  "probar" in str(getattr(_r1, "body", _r1)))
+            _r2 = await _main3.raiz(_ReqStub({"clave": "mala"}))
+            check("raíz con clave incorrecta también va a /tienda (01/09)",
+                  getattr(_r2, "status_code", 0) == 302)
+            # SEGURO DE VIDA (01/09): el webhook de Kommo llega SIN clave.
+            # La clave del panel debe ser OTRA variable — si alguien vuelve
+            # a usar _WEBHOOK_CLAVE en el probador/raíz, el dueño podría
+            # setearla en Render y matar el bot sin darse cuenta.
+            import inspect as _ins
+            _src_raiz = _ins.getsource(_main3.raiz)
+            _src_probar = _ins.getsource(_main3.probar_get)
+            check("raíz y probador usan _CLAVE_PANEL, no la del webhook (01/09)",
+                  "_WEBHOOK_CLAVE" not in _src_raiz
+                  and "_WEBHOOK_CLAVE" not in _src_probar)
+        finally:
+            _main3._CLAVE_PANEL = _cl_orig
 
     if FALLOS:
         print(f"❌ {len(FALLOS)} REGRESIONES: {FALLOS}")

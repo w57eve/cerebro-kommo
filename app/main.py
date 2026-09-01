@@ -138,13 +138,14 @@ un cliente y mirá qué respondería. (En Kommo, el nombre del cliente lo toma s
 
 @app.get("/", response_class=HTMLResponse)
 async def raiz(request: Request):
-    # cuando catalogo.shoppingasia.com.py apunte al cerebro, su portada es
-    # la TIENDA (la página de prueba queda solo en el dominio de Render)
-    host = (request.headers.get("host") or "").lower()
-    if "shoppingasia.com.py" in host:
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse("/tienda", status_code=302)
-    return PAGINA_PRUEBA
+    # 01/09: la portada SIEMPRE es la tienda (en cualquier dominio).
+    # La página de prueba solo se ve con la clave: /?clave=... — así desde
+    # otra PC nadie llega al probador ni gasta la IA.
+    if (_CLAVE_PANEL
+            and request.query_params.get("clave", "") == _CLAVE_PANEL):
+        return PAGINA_PRUEBA
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse("/tienda", status_code=302)
 
 
 @app.get("/robots.txt")
@@ -234,6 +235,11 @@ import time as _time
 
 _ESPERA_AGRUPAR = float(_os.getenv("ESPERA_AGRUPAR_SEG", "6"))
 _WEBHOOK_CLAVE = (_os.getenv("WEBHOOK_CLAVE", "") or "").strip()
+# clave SOLO para las páginas del dueño (probador, /aprendizaje, etc.).
+# Es SEPARADA de WEBHOOK_CLAVE a propósito: Kommo llama a /webhook-mensajes
+# sin clave, así que activar WEBHOOK_CLAVE cortaría el bot (01/09).
+_CLAVE_PANEL = ((_os.getenv("CLAVE_PRUEBA", "") or "").strip()
+                or _WEBHOOK_CLAVE)
 
 _charlas = {}   # lead_id -> {"textos": [...], "contact_id": str, "tarea": Task}
 _vistos = {}    # message_id -> timestamp (dedupe de reintentos del webhook)
@@ -1098,7 +1104,7 @@ async def tienda_buscar(q: str = "", cat: str = ""):
 async def ver_ultimos_webhooks(request: Request):
     """Últimos webhooks CRUDOS: para descubrir en qué campo llega la
     referencia del anuncio de Meta y sumarla al mapa de pautas."""
-    if _WEBHOOK_CLAVE and request.query_params.get("clave", "") != _WEBHOOK_CLAVE:
+    if _CLAVE_PANEL and request.query_params.get("clave", "") != _CLAVE_PANEL:
         return JSONResponse({"error": "clave"}, status_code=403)
     return {"webhooks": _ultimos_raw}
 
@@ -1107,7 +1113,7 @@ async def ver_ultimos_webhooks(request: Request):
 async def ver_aprendizaje(request: Request):
     """Resumen del registro de aprendizaje: tasas de error y consultas sin
     respuesta útil (materia prima para reglas y sinónimos nuevos)."""
-    if _WEBHOOK_CLAVE and request.query_params.get("clave", "") != _WEBHOOK_CLAVE:
+    if _CLAVE_PANEL and request.query_params.get("clave", "") != _CLAVE_PANEL:
         return JSONResponse({"error": "clave"}, status_code=403)
     return aprendizaje.resumen()
 
@@ -1157,7 +1163,7 @@ async def diag():
 
 @app.post("/probar")
 async def probar(request: Request):
-    if _WEBHOOK_CLAVE and request.query_params.get("clave", "") != _WEBHOOK_CLAVE:
+    if _CLAVE_PANEL and request.query_params.get("clave", "") != _CLAVE_PANEL:
         return JSONResponse({"error": "clave requerida"}, status_code=403)
     body = await request.json()
     mensaje = body.get("mensaje", "")
@@ -1171,7 +1177,7 @@ async def probar(request: Request):
 async def probar_get(mensaje: str = "", ad_id: str = "", nombre: str = "",
                      clave: str = ""):
     # 31/08: sin clave, cualquiera que descubra la URL gasta la IA
-    if _WEBHOOK_CLAVE and clave != _WEBHOOK_CLAVE:
+    if _CLAVE_PANEL and clave != _CLAVE_PANEL:
         return JSONResponse({"error": "clave requerida: agregá "
                              "?clave=... a la URL"}, status_code=403)
     """Prueba rápida desde el navegador: /probar?mensaje=hacen%20envios"""

@@ -13,8 +13,11 @@ import time
 
 import httpx
 
+# 01/09: el dominio catalogo.shoppingasia.com.py pasa a ser la TIENDA del
+# cerebro; los flyers siguen vivos en la URL directa de GitHub Pages y de
+# ahí se sigue usando como respaldo de fotos.
 URL = os.getenv("CATALOGO_CHICO_URL",
-                "https://catalogo.shoppingasia.com.py/datos/catalogo.json")
+                "https://w57eve.github.io/catalogo/datos/catalogo.json")
 
 _cache = {"ts": 0.0, "por_sku": {}, "categorias": [], "foto_sku": {}}
 
@@ -23,7 +26,8 @@ async def _asegurar():
     if _cache["por_sku"] and time.time() - _cache["ts"] < 3600:
         return
     try:
-        async with httpx.AsyncClient(timeout=20) as cli:
+        async with httpx.AsyncClient(timeout=20,
+                                     follow_redirects=True) as cli:
             r = await cli.get(URL, headers={"User-Agent": "cerebro"})
             r.raise_for_status()
             j = r.json()

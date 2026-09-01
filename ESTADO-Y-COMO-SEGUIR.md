@@ -49,7 +49,13 @@ Con sesión de admin en Kommo:
 4. WEBHOOK: Ajustes -> Integraciones -> botón "Web hooks" -> agregar URL
    https://cerebro-kommo.onrender.com/webhook-mensajes con el evento
    "Mensaje entrante recibido" (Incoming message received). Guardar.
-   (Opcional: agregar ?clave=XXXX a la URL y poner WEBHOOK_CLAVE=XXXX en Render.)
+   (Opcional: agregar ?clave=XXXX a la URL y poner WEBHOOK_CLAVE=XXXX en Render.
+   OJO 01/09: WEBHOOK_CLAVE exige la clave TAMBIÉN en /webhook-mensajes — solo
+   setearla si la URL del webhook en Kommo ya la lleva, si no el bot se corta.
+   Para cerrar el probador y las páginas del dueño SIN tocar el webhook, la
+   variable correcta es CLAVE_PRUEBA: con ella, el probador queda en
+   https://cerebro-kommo.onrender.com/?clave=XXXX y la raíz sin clave va a
+   la tienda.)
 5. APAGAR el bot viejo del widget (sacarle el disparador o desactivarlo) para
    que no choque con el nuevo ("no se puede continuar un bot si otro bot ya
    está corriendo en la misma entidad").
@@ -509,6 +515,21 @@ El botón WhatsApp NUNCA se elimina: es el camino sin fricción y el que
 alimenta a Kommo.
 
 ### Dominio catalogo.shoppingasia.com.py -> cerebro (pendiente de PORTA)
-Código listo: cuando ese host llegue al cerebro, / redirige a /tienda.
-Pasos: Render -> Custom Domains -> agregar catalogo.shoppingasia.com.py;
-Cloudflare -> CNAME catalogo -> cerebro-kommo.onrender.com.
+Código listo: la raíz del cerebro ya redirige a /tienda en cualquier dominio.
+OJO: ese dominio hoy sirve los FLYERS (repo w57eve/catalogo, GitHub Pages) y
+el cerebro los usa de respaldo de fotos. Orden correcto (01/09):
+1. catalogo-flyers\publicar.bat  (ya se borró sitio/CNAME: los flyers pasan
+   a vivir en https://w57eve.github.io/catalogo — el cerebro ya apunta ahí).
+2. actualizar_github.bat  (deploy del cerebro con el respaldo re-apuntado).
+3. Render -> Settings -> Custom Domains -> agregar catalogo.shoppingasia.com.py.
+4. Cloudflare -> DNS -> editar el CNAME "catalogo": de w57eve.github.io a
+   cerebro-kommo.onrender.com, nube GRIS (DNS only) para que Render emita
+   el certificado. Esperar unos minutos a que Render diga "Certificate issued".
+5. Probar https://catalogo.shoppingasia.com.py -> debe abrir la tienda; y
+   https://w57eve.github.io/catalogo/datos/catalogo.json -> debe seguir dando
+   JSON (respaldo de fotos vivo).
+
+## Monitoreo 01/09/2026 (mañana)
+- 135 mensajes, 5 derivados (3,7%), 0 fallbacks. Catálogo OK (49.536 prod, fetch 200). Suite 136/136.
+- Ajusté: (1) reglas.py — "mandan" suelto en FAQ envíos capturaba "el link que me mandan" (queja de Camila, lead 24919560) y respondía envíos: ahora "mandan a/hasta/por". (2) busqueda.py — grupo pecera/pescera/pesera (typo traía cañas de pescar). +5 tests. Falta doble clic a actualizar_github.bat.
+- Pendiente grande (no toqué): links de buscador con frase larga — "web esta caida" generó /c/pelo%20tu%20web%20caida con 200 modelos random (lead 24922774). Habría que filtrar palabras no-producto antes de armar el link.
