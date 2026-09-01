@@ -23,6 +23,31 @@ from .config import cfg
 
 app = FastAPI(title="Cerebro de ventas — Shopping Asia")
 
+# ── Anti-scraping (31/08): un navegador humano no hace cientos de
+# pedidos por minuto; un aspirador de catálogos sí. Límite por IP con
+# ventana de 60s. Kommo y healthchecks quedan exentos.
+_ritmo = {}
+
+
+@app.middleware("http")
+async def _limite_ritmo(request, call_next):
+    import time as _t
+    ruta = request.url.path
+    if ruta.startswith(("/c/", "/cat/", "/l/", "/tienda", "/buscar")):
+        ip = (request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+              or (request.client.host if request.client else "?"))
+        ahora = int(_t.time() // 60)
+        clave = (ip, ahora)
+        _ritmo[clave] = _ritmo.get(clave, 0) + 1
+        if len(_ritmo) > 5000:
+            _ritmo.clear()
+        if _ritmo[clave] > 240:   # 240 páginas/min por IP: nadie humano
+            from fastapi.responses import PlainTextResponse
+            return PlainTextResponse("Demasiadas consultas, probá en un "
+                                     "minuto.", status_code=429)
+    return await call_next(request)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -90,7 +115,7 @@ un cliente y mirá qué respondería. (En Kommo, el nombre del cliente lo toma s
     box.textContent = 'Pensando...';
     var nom = (document.getElementById('nom').value || '').trim();
     try{
-      var r = await fetch('/probar', {
+      var r = await fetch('/probar' + location.search, {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({mensaje: msg, nombre: nom})
@@ -120,6 +145,16 @@ async def raiz(request: Request):
         from fastapi.responses import RedirectResponse
         return RedirectResponse("/tienda", status_code=302)
     return PAGINA_PRUEBA
+
+
+@app.get("/robots.txt")
+async def robots():
+    from fastapi.responses import PlainTextResponse
+    return PlainTextResponse(
+        "User-agent: *\n"
+        "Allow: /tienda\nAllow: /cat/\nAllow: /c/\nAllow: /foto/\n"
+        "Disallow: /probar\nDisallow: /diag\nDisallow: /aprendizaje\n"
+        "Disallow: /ultimos-webhooks\nDisallow: /webhook\n")
 
 
 @app.get("/health")
@@ -750,113 +785,109 @@ background:var(--verde);padding:12px 0;margin-top:8px}}
 window.__marcas=[];
 window.__rm=function(){{window.__marcas.forEach(function(f){{f();}});}};
 document.querySelectorAll('.c').forEach(function(c){{
-  var fs=c.querySelector('.fs'), dots=c.querySelectorAll('.dots i'),
-      cnt=c.querySelector('.cnt');
-  if(!fs)return;
-  function nImgs(){{return fs.querySelectorAll('img').length;}}
-  function idx(){{return Math.round(fs.scrollLeft/fs.clientWidth);}}
-  function marca(){{
-    var i=idx(), n=nImgs();
-    dots.forEach(function(d,j){{
-      d.classList.toggle('on',j===i);
-      d.style.display=(j<n)?'':'none';   // si una foto falló, su punto se va
-    }});
-    if(cnt){{cnt.textContent=(i+1)+'/'+n;cnt.style.display=(n>1)?'':'none';}}
-    var pv=c.querySelector('.prev'),nx=c.querySelector('.next');
-    if(pv)pv.style.display=(n>1)?'':'none';
-    if(nx)nx.style.display=(n>1)?'':'none';
-  }}
-  function go(i){{
-    var n=nImgs(); if(n<1)return;
-    i=(i+n)%n;
-    fs.scrollTo({{left:i*fs.clientWidth,behavior:'smooth'}});
-    setTimeout(marca,350);
-  }}
-  marca();
-  window.__marcas.push(marca);
-  fs.addEventListener('scroll',function(){{requestAnimationFrame(marca);}});
-  var pv=c.querySelector('.prev'), nx=c.querySelector('.next');
-  if(pv)pv.addEventListener('click',function(e){{e.preventDefault();go(idx()-1);}});
-  if(nx)nx.addEventListener('click',function(e){{e.preventDefault();go(idx()+1);}});
-  var x0=null, drag=false;
-  fs.addEventListener('pointerdown',function(e){{x0=e.clientX;drag=false;}});
-  fs.addEventListener('pointermove',function(e){{
-    if(x0!==null&&Math.abs(e.clientX-x0)>12)drag=true;
-  }});
-  fs.addEventListener('pointerup',function(e){{
-    var n=nImgs();
-    if(n<2){{x0=null;return;}}
-    var dx=e.clientX-(x0===null?e.clientX:x0);
-    if(drag&&Math.abs(dx)>35){{go(idx()+(dx<0?1:-1));}}
-    else if(!drag){{go(idx()+1);}}
-    x0=null;drag=false;
-  }});
-  dots.forEach(function(d,j){{
-    d.addEventListener('click',function(){{go(j);}});
-  }});
+var fs=c.querySelector('.fs'), dots=c.querySelectorAll('.dots i'),
+cnt=c.querySelector('.cnt');
+if(!fs)return;
+function nImgs(){{return fs.querySelectorAll('img').length;}}
+function idx(){{return Math.round(fs.scrollLeft/fs.clientWidth);}}
+function marca(){{
+var i=idx(), n=nImgs();
+dots.forEach(function(d,j){{
+d.classList.toggle('on',j===i);
+d.style.display=(j<n)?'':'none';   // si una foto falló, su punto se va
 }});
-
-/* ── CARRITO (acompaña el scroll; localStorage: sobrevive entre páginas) ── */
+if(cnt){{cnt.textContent=(i+1)+'/'+n;cnt.style.display=(n>1)?'':'none';}}
+var pv=c.querySelector('.prev'),nx=c.querySelector('.next');
+if(pv)pv.style.display=(n>1)?'':'none';
+if(nx)nx.style.display=(n>1)?'':'none';
+}}
+function go(i){{
+var n=nImgs(); if(n<1)return;
+i=(i+n)%n;
+fs.scrollTo({{left:i*fs.clientWidth,behavior:'smooth'}});
+setTimeout(marca,350);
+}}
+marca();
+window.__marcas.push(marca);
+fs.addEventListener('scroll',function(){{requestAnimationFrame(marca);}});
+var pv=c.querySelector('.prev'), nx=c.querySelector('.next');
+if(pv)pv.addEventListener('click',function(e){{e.preventDefault();go(idx()-1);}});
+if(nx)nx.addEventListener('click',function(e){{e.preventDefault();go(idx()+1);}});
+var x0=null, drag=false;
+fs.addEventListener('pointerdown',function(e){{x0=e.clientX;drag=false;}});
+fs.addEventListener('pointermove',function(e){{
+if(x0!==null&&Math.abs(e.clientX-x0)>12)drag=true;
+}});
+fs.addEventListener('pointerup',function(e){{
+var n=nImgs();
+if(n<2){{x0=null;return;}}
+var dx=e.clientX-(x0===null?e.clientX:x0);
+if(drag&&Math.abs(dx)>35){{go(idx()+(dx<0?1:-1));}}
+else if(!drag){{go(idx()+1);}}
+x0=null;drag=false;
+}});
+dots.forEach(function(d,j){{
+d.addEventListener('click',function(){{go(j);}});
+}});
+}});
 (function(){{
-  var K='carrito_sa', mem=[];
-  /* WhatsApp/incógnito pueden bloquear localStorage: el carrito vive
-     igual en memoria de la página (31/08, probado en navegador real) */
-  function leer(){{
-    try{{var v=JSON.parse(localStorage.getItem(K));if(v)return v;}}catch(e){{}}
-    return mem;
-  }}
-  function guardar(c){{
-    mem=c;
-    try{{localStorage.setItem(K,JSON.stringify(c))}}catch(e){{}}
-  }}
-  var fab=document.getElementById('cfab'),pan=document.getElementById('cpanel'),
-      num=document.getElementById('cnum'),lista=document.getElementById('clista'),
-      totv=document.getElementById('ctotv'),cwa=document.getElementById('cwa');
-  if(!fab)return;
-  function gs(n){{return (n||0).toLocaleString('es-PY')+' gs';}}
-  function pintar(){{
-    var c=leer();
-    num.textContent=c.length;
-    fab.style.display=c.length?'block':'none';
-    if(!c.length){{pan.style.display='none';}}
-    lista.innerHTML=c.map(function(it,i){{
-      return "<div class='citem'><img src='/foto/"+it.sku+".jpg'>"+
-        "<div class='ci'><div class='cn'>"+it.nombre+"</div>"+
-        "<div class='cp'>"+gs(it.precio)+"</div></div>"+
-        "<button class='cx' data-i='"+i+"' aria-label='quitar'>✕</button></div>";
-    }}).join('');
-    lista.querySelectorAll('img').forEach(function(im){{
-      im.onerror=function(){{im.style.visibility='hidden';}};
-    }});
-    var tot=c.reduce(function(s,x){{return s+(x.precio||0)}},0);
-    totv.textContent=gs(tot);
-    var txt='Quiero hacer un pedido 🛒\\n'+c.map(function(x){{
-      return 'Producto (SKU): '+x.sku+'\\n  '+x.nombre+' — '+gs(x.precio);
-    }}).join('\\n')+'\\nTOTAL: '+gs(tot);
-    var skus=c.map(function(x){{return x.sku}}).join(',');
-    cwa.href='/pedido-wa?skus='+skus+'&texto='+encodeURIComponent(txt);
-    lista.querySelectorAll('.cx').forEach(function(b){{
-      b.addEventListener('click',function(){{
-        var c2=leer();c2.splice(parseInt(b.getAttribute('data-i')),1);
-        guardar(c2);pintar();
-      }});
-    }});
-  }}
-  document.querySelectorAll('.agregar').forEach(function(b){{
-    b.addEventListener('click',function(){{
-      var c0=b.closest('.c'),c=leer();
-      c.push({{sku:c0.getAttribute('data-sku'),
-              nombre:c0.getAttribute('data-nombre'),
-              precio:parseInt(c0.getAttribute('data-precio'))||0}});
-      guardar(c);pintar();
-      b.textContent='✓ Agregado';
-      setTimeout(function(){{b.textContent='➕ Agregar';}},900);
-    }});
-  }});
-  fab.addEventListener('click',function(){{
-    pan.style.display=(pan.style.display==='block')?'none':'block';
-  }});
-  pintar();
+var K='carrito_sa', mem=[];
+function leer(){{
+try{{var v=JSON.parse(localStorage.getItem(K));if(v)return v;}}catch(e){{}}
+return mem;
+}}
+function guardar(c){{
+mem=c;
+try{{localStorage.setItem(K,JSON.stringify(c))}}catch(e){{}}
+}}
+var fab=document.getElementById('cfab'),pan=document.getElementById('cpanel'),
+num=document.getElementById('cnum'),lista=document.getElementById('clista'),
+totv=document.getElementById('ctotv'),cwa=document.getElementById('cwa');
+if(!fab)return;
+function gs(n){{return (n||0).toLocaleString('es-PY')+' gs';}}
+function pintar(){{
+var c=leer();
+num.textContent=c.length;
+fab.style.display=c.length?'block':'none';
+if(!c.length){{pan.style.display='none';}}
+lista.innerHTML=c.map(function(it,i){{
+return "<div class='citem'><img src='/foto/"+it.sku+".jpg'>"+
+"<div class='ci'><div class='cn'>"+it.nombre+"</div>"+
+"<div class='cp'>"+gs(it.precio)+"</div></div>"+
+"<button class='cx' data-i='"+i+"' aria-label='quitar'>✕</button></div>";
+}}).join('');
+lista.querySelectorAll('img').forEach(function(im){{
+im.onerror=function(){{im.style.visibility='hidden';}};
+}});
+var tot=c.reduce(function(s,x){{return s+(x.precio||0)}},0);
+totv.textContent=gs(tot);
+var txt='Quiero hacer un pedido 🛒\\n'+c.map(function(x){{
+return 'Producto (SKU): '+x.sku+'\\n  '+x.nombre+' — '+gs(x.precio);
+}}).join('\\n')+'\\nTOTAL: '+gs(tot);
+var skus=c.map(function(x){{return x.sku}}).join(',');
+cwa.href='/pedido-wa?skus='+skus+'&texto='+encodeURIComponent(txt);
+lista.querySelectorAll('.cx').forEach(function(b){{
+b.addEventListener('click',function(){{
+var c2=leer();c2.splice(parseInt(b.getAttribute('data-i')),1);
+guardar(c2);pintar();
+}});
+}});
+}}
+document.querySelectorAll('.agregar').forEach(function(b){{
+b.addEventListener('click',function(){{
+var c0=b.closest('.c'),c=leer();
+c.push({{sku:c0.getAttribute('data-sku'),
+nombre:c0.getAttribute('data-nombre'),
+precio:parseInt(c0.getAttribute('data-precio'))||0}});
+guardar(c);pintar();
+b.textContent='✓ Agregado';
+setTimeout(function(){{b.textContent='➕ Agregar';}},900);
+}});
+}});
+fab.addEventListener('click',function(){{
+pan.style.display=(pan.style.display==='block')?'none':'block';
+}});
+pintar();
 }})();
 </script></body></html>"""
     return HTMLResponse(pagina, headers={"Cache-Control": "public, max-age=600"})
@@ -1126,6 +1157,8 @@ async def diag():
 
 @app.post("/probar")
 async def probar(request: Request):
+    if _WEBHOOK_CLAVE and request.query_params.get("clave", "") != _WEBHOOK_CLAVE:
+        return JSONResponse({"error": "clave requerida"}, status_code=403)
     body = await request.json()
     mensaje = body.get("mensaje", "")
     ad_id = body.get("ad_id", "")
@@ -1135,7 +1168,12 @@ async def probar(request: Request):
 
 
 @app.get("/probar")
-async def probar_get(mensaje: str = "", ad_id: str = "", nombre: str = ""):
+async def probar_get(mensaje: str = "", ad_id: str = "", nombre: str = "",
+                     clave: str = ""):
+    # 31/08: sin clave, cualquiera que descubra la URL gasta la IA
+    if _WEBHOOK_CLAVE and clave != _WEBHOOK_CLAVE:
+        return JSONResponse({"error": "clave requerida: agregá "
+                             "?clave=... a la URL"}, status_code=403)
     """Prueba rápida desde el navegador: /probar?mensaje=hacen%20envios"""
     if not mensaje:
         return JSONResponse({"error": "pasá ?mensaje=tu%20mensaje"})
