@@ -721,6 +721,45 @@ async def correr():
         check("labiales fuera de Librería (31/08)",
               not any("LABIAL" in n for n in _lib))
 
+    # ── CARRITO DE LA TIENDA (31/08 noche) ──
+    if _main3:
+        _rl = await _main3.lista_resultados(",".join(
+            [str(x["sku"]) for x in productos.indice_actual().buscar("termo", 3)]))
+        _hl = _rl.body.decode()
+        check("carrito: boton Agregar + fab + panel (31/08)",
+              'class="btn agregar"' in _hl and "id='cfab'" in _hl
+              and "carrito_sa" in _hl and "Enviar pedido por WhatsApp" in _hl)
+        # sintaxis del JS de la página (31/08: un escape roto mató el carrito)
+        import re as _re9
+        import subprocess as _sp
+        _js = _re9.search(r"<script>(.*?)</script>", _hl, _re9.S)
+        _ok_js = True
+        try:
+            _r = _sp.run(["node", "-e",
+                          "new Function(require('fs').readFileSync(0,'utf8'))"],
+                         input=_js.group(1).encode(), capture_output=True,
+                         timeout=20)
+            _ok_js = _r.returncode == 0
+        except FileNotFoundError:
+            pass   # sin node en este entorno: se salta
+        check("carrito: JS de la página sin errores de sintaxis (31/08)",
+              _ok_js)
+
+    # ── DISEÑO EDITORIAL + /vendedor + DESTACADOS (31/08 noche) ──
+    if _main3:
+        _rv = await _main3.tienda_vendedor(consulta="prueba")
+        check("/vendedor deriva a WhatsApp con rotación (31/08)",
+              "wa.me/5959" in _rv.headers.get("location", ""))
+        _rv2 = await _main3.tienda_vendedor()
+        check("/vendedor rota de vendedora (31/08)",
+              _rv.headers.get("location", "").split("?")[0]
+              != _rv2.headers.get("location", "").split("?")[0])
+        _rp2 = await _main3.tienda_portada()
+        _hp2 = _rp2.body.decode()
+        check("portada editorial: destacadas + serif + ayuda (31/08)",
+              "Piezas destacadas" in _hp2 and "Cormorant" in _hp2
+              and "/vendedor" in _hp2 and _hp2.count('class="catf"') >= 12)
+
     if FALLOS:
         print(f"❌ {len(FALLOS)} REGRESIONES: {FALLOS}")
         sys.exit(1)

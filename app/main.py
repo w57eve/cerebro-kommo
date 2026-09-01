@@ -112,7 +112,13 @@ un cliente y mirá qué respondería. (En Kommo, el nombre del cliente lo toma s
 
 
 @app.get("/", response_class=HTMLResponse)
-async def raiz():
+async def raiz(request: Request):
+    # cuando catalogo.shoppingasia.com.py apunte al cerebro, su portada es
+    # la TIENDA (la página de prueba queda solo en el dominio de Render)
+    host = (request.headers.get("host") or "").lower()
+    if "shoppingasia.com.py" in host:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse("/tienda", status_code=302)
     return PAGINA_PRUEBA
 
 
@@ -600,78 +606,143 @@ async def _pagina_catalogo(items, titulo, nota, query="", cat="",
                 '<button class="nav next" aria-label="siguiente">&#8250;</button>'
                 f'<span class="cnt">1/{min(n_fotos, 4)}</span>'
                 if n_fotos > 1 else "")
+        _dj = _html.escape(nombre).replace("'", "&#39;")
         tarjetas.append(
-            f'<div class="c"><div class="fw"><div class="{_cls_fs}">{fotos}'
+            f'<div class="c" data-sku="{sku}" data-nombre="{_dj}" '
+            f'data-precio="{it.get("precio") or 0}">'
+            f'<div class="fw"><div class="{_cls_fs}">{fotos}'
             f'</div>{_nav}</div>{puntos}'
             f'<div class="tx"><div class="n">{_html.escape(nombre)}</div>'
             f'<div class="p">{precio}</div>'
             f'<div class="s">SKU {sku}</div></div>'
+            f'<button class="btn agregar" type="button">➕ Agregar</button>'
             f'<a class="btn" href="{wa}">🛒 Hacer pedido</a></div>')
     pagina = f"""<!doctype html><html lang='es'><head><meta charset='utf-8'>
 <meta name='viewport' content='width=device-width,initial-scale=1'>
-<title>Shopping Asia — {_html.escape(titulo)}</title><style>
-:root{{color-scheme:light dark;--marca:#d81b60;--verde:#0a8f3c;--fondo:#f5f4f7;
---tarjeta:#fff;--texto:#1c1c1e;--suave:#8a8a90}}
-@media(prefers-color-scheme:dark){{:root{{--fondo:#121214;--tarjeta:#1e1e22;
---texto:#f2f2f4;--suave:#9a9aa2}}}}
+<title>Shopping Asia — {_html.escape(titulo) if titulo else "Tienda"}</title>
+<link rel='preconnect' href='https://fonts.googleapis.com'>
+<link href='https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Jost:wght@300;400;500;600&display=swap' rel='stylesheet'>
+<style>
+:root{{color-scheme:light dark;--marca:#b3134f;--verde:#0a7a38;--fondo:#faf8f5;
+--tarjeta:#ffffff;--texto:#191714;--suave:#8d8880;--linea:#e8e3db;
+--serif:'Cormorant Garamond',Georgia,serif;--sans:'Jost',system-ui,sans-serif}}
+@media(prefers-color-scheme:dark){{:root{{--fondo:#141210;--tarjeta:#1d1a17;
+--texto:#f0ece6;--suave:#9b958c;--linea:#2c2823}}}}
 *{{box-sizing:border-box;margin:0}}
-body{{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--fondo);
-color:var(--texto);padding-bottom:28px}}
-header{{position:sticky;top:0;z-index:5;background:linear-gradient(120deg,#d81b60,#a4148f);
-color:#fff;padding:13px 16px 11px;box-shadow:0 2px 10px rgba(0,0,0,.18)}}
-header h1{{font-size:1.05rem;font-weight:800;letter-spacing:.3px}}
-header .sub{{font-size:.8rem;opacity:.92;margin-top:2px}}
-.bsc{{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}}
-.bsc input{{flex:2 1 150px;min-width:0;padding:9px 12px;border:0;
-border-radius:10px;font-size:.95rem;background:rgba(255,255,255,.95);color:#222}}
-.bsc select{{flex:1 1 120px;min-width:0;padding:9px 8px;border:0;
-border-radius:10px;font-size:.85rem;background:rgba(255,255,255,.88);color:#333}}
-.bsc button{{padding:9px 16px;border:0;border-radius:10px;font-weight:700;
-background:#fff;color:var(--marca);cursor:pointer;font-size:.9rem}}
-.nota{{padding:12px 16px 4px;color:var(--suave);font-size:.85rem}}
-.g{{display:grid;grid-template-columns:repeat(auto-fill,minmax(164px,1fr));
-gap:12px;padding:12px}}
-.c{{background:var(--tarjeta);border-radius:16px;overflow:hidden;display:flex;
-flex-direction:column;box-shadow:0 1px 6px rgba(0,0,0,.09)}}
+body{{font-family:var(--sans);font-weight:300;background:var(--fondo);
+color:var(--texto);padding-bottom:40px;letter-spacing:.01em}}
+header{{position:sticky;top:0;z-index:5;background:var(--fondo);
+border-bottom:1px solid var(--linea);padding:18px 20px 14px}}
+header h1{{font-family:var(--serif);font-size:1.55rem;font-weight:600;
+letter-spacing:.04em;color:var(--texto)}}
+header a h1{{color:var(--texto)}}
+header .sub{{font-size:.72rem;color:var(--suave);margin-top:2px;
+text-transform:uppercase;letter-spacing:.22em}}
+.bsc{{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}}
+.bsc input{{flex:2 1 160px;min-width:0;padding:10px 14px;font-family:var(--sans);
+border:1px solid var(--linea);border-radius:0;font-size:.92rem;
+background:var(--tarjeta);color:var(--texto)}}
+.bsc input:focus{{outline:1px solid var(--marca)}}
+.bsc select{{flex:1 1 130px;min-width:0;padding:10px 8px;font-family:var(--sans);
+border:1px solid var(--linea);border-radius:0;font-size:.8rem;
+background:var(--tarjeta);color:var(--texto)}}
+.bsc button{{padding:10px 22px;border:1px solid var(--texto);border-radius:0;
+font-family:var(--sans);font-weight:500;background:var(--texto);
+color:var(--fondo);cursor:pointer;font-size:.8rem;text-transform:uppercase;
+letter-spacing:.14em}}
+.ayuda{{display:inline-block;margin-top:9px;font-size:.72rem;color:var(--suave);
+text-decoration:none;text-transform:uppercase;letter-spacing:.18em;
+border-bottom:1px solid var(--linea);padding-bottom:2px}}
+.ayuda:hover{{color:var(--marca);border-color:var(--marca)}}
+.nota{{padding:16px 20px 2px;color:var(--suave);font-size:.83rem;
+max-width:70ch;line-height:1.55}}
+.g{{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));
+gap:22px 16px;padding:18px 20px 26px}}
+.c{{background:var(--tarjeta);border:1px solid var(--linea);border-radius:0;
+overflow:hidden;display:flex;flex-direction:column;
+transition:box-shadow .25s,transform .25s}}
+.c:hover{{box-shadow:0 12px 34px rgba(25,23,20,.10);transform:translateY(-2px)}}
 .fs{{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;
-scrollbar-width:none;background:linear-gradient(160deg,#faf7f9,#efe9f0);
-aspect-ratio:1}}
+scrollbar-width:none;background:#fff;aspect-ratio:1}}
 .fs::-webkit-scrollbar{{display:none}}
 .fs img{{flex:0 0 100%;width:100%;object-fit:contain;scroll-snap-align:center;
-background:linear-gradient(160deg,#faf7f9,#f0edf2)}}
-.dots{{display:flex;gap:5px;justify-content:center;padding:6px 0 0}}
-.dots i{{width:7px;height:7px;border-radius:50%;background:var(--suave);
-opacity:.45;cursor:pointer}}
-.dots i.on{{opacity:1;background:var(--marca)}}
+background:#fff;padding:8%}}
+.dots{{display:flex;gap:6px;justify-content:center;padding:8px 0 0}}
+.dots i{{width:5px;height:5px;border-radius:50%;background:var(--suave);
+opacity:.4;cursor:pointer;transition:all .2s}}
+.dots i.on{{opacity:1;background:var(--marca);width:16px;border-radius:3px}}
 .fs.multi img{{cursor:pointer}}
 .fw{{position:relative}}
-.nav{{position:absolute;top:50%;transform:translateY(-50%);width:32px;
-height:32px;border-radius:50%;border:0;background:rgba(255,255,255,.92);
-color:#333;font-size:20px;line-height:1;display:flex;align-items:center;
-justify-content:center;cursor:pointer;z-index:2;
-box-shadow:0 1px 5px rgba(0,0,0,.25);opacity:0;transition:opacity .15s}}
+.nav{{position:absolute;top:50%;transform:translateY(-50%);width:30px;
+height:30px;border-radius:50%;border:1px solid var(--linea);
+background:rgba(255,255,255,.94);color:#333;font-size:17px;line-height:1;
+display:flex;align-items:center;justify-content:center;cursor:pointer;
+z-index:2;opacity:0;transition:opacity .15s}}
 .prev{{left:8px}}.next{{right:8px}}
 .fw:hover .nav{{opacity:1}}
-@media(pointer:coarse){{.nav{{opacity:.7;width:28px;height:28px}}}}
-.cnt{{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.45);
-color:#fff;font-size:.68rem;font-weight:600;padding:2px 8px;
-border-radius:10px;z-index:2}}
-.tx{{padding:9px 12px 4px;flex:1}}
-.n{{font-size:.84rem;line-height:1.25;font-weight:500;min-height:2.1em}}
-.p{{font-size:1.02rem;font-weight:800;color:var(--verde);margin-top:4px}}
-.s{{font-size:.68rem;color:var(--suave);margin-top:2px}}
-.btn{{display:block;text-align:center;text-decoration:none;font-weight:700;
-font-size:.9rem;color:#fff;background:var(--marca);margin:9px 12px 12px;
-padding:10px 0;border-radius:12px}}
-.btn:active{{transform:scale(.97)}}
+@media(pointer:coarse){{.nav{{opacity:.65;width:27px;height:27px}}}}
+.cnt{{position:absolute;top:8px;right:8px;background:rgba(25,23,20,.55);
+color:#fff;font-size:.62rem;font-weight:500;padding:2px 8px;
+letter-spacing:.08em;z-index:2}}
+.tx{{padding:12px 13px 4px;flex:1}}
+.n{{font-family:var(--serif);font-size:1.02rem;line-height:1.22;
+font-weight:600;min-height:2.4em}}
+.p{{font-size:.95rem;font-weight:500;color:var(--texto);margin-top:6px;
+letter-spacing:.03em}}
+.p::after{{content:"";display:block;width:26px;height:2px;
+background:var(--marca);margin-top:6px}}
+.s{{font-size:.62rem;color:var(--suave);margin-top:5px;letter-spacing:.08em}}
+.btn{{display:block;text-align:center;text-decoration:none;font-weight:500;
+font-size:.76rem;text-transform:uppercase;letter-spacing:.16em;color:var(--fondo);
+background:var(--texto);margin:10px 13px 13px;padding:11px 0;border:0;
+cursor:pointer;transition:background .2s}}
+.btn:hover{{background:var(--marca)}}
+.btn:active{{transform:scale(.98)}}
+.btn.agregar{{background:transparent;color:var(--texto);
+border:1px solid var(--texto);margin-bottom:0;padding:9px 0}}
+.btn.agregar:hover{{border-color:var(--marca);color:var(--marca)}}
+#cfab{{position:fixed;right:16px;bottom:20px;z-index:50;width:56px;height:56px;
+border-radius:50%;border:1px solid var(--linea);background:var(--texto);
+color:var(--fondo);font-size:23px;box-shadow:0 8px 26px rgba(0,0,0,.28);
+cursor:pointer;display:none}}
+#cfab b{{position:absolute;top:-5px;right:-5px;background:var(--marca);
+color:#fff;font-size:.7rem;min-width:22px;height:22px;border-radius:11px;
+display:flex;align-items:center;justify-content:center;padding:0 4px}}
+#cpanel{{position:fixed;right:12px;bottom:88px;z-index:50;width:min(340px,92vw);
+max-height:62vh;overflow-y:auto;background:var(--tarjeta);
+border:1px solid var(--linea);box-shadow:0 18px 48px rgba(0,0,0,.25);
+display:none;padding:16px}}
+#cpanel h3{{font-family:var(--serif);font-size:1.15rem;font-weight:600;
+margin-bottom:10px}}
+.citem{{display:flex;gap:10px;align-items:center;padding:8px 0;
+border-bottom:1px solid var(--linea)}}
+.citem img{{width:48px;height:48px;object-fit:contain;background:#fff;
+border:1px solid var(--linea);flex:0 0 48px}}
+.citem .ci{{flex:1;min-width:0}}
+.citem .cn{{font-size:.78rem;line-height:1.25;overflow:hidden;
+display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}}
+.citem .cp{{font-size:.82rem;font-weight:600;margin-top:2px}}
+.citem .cx{{border:0;background:none;color:var(--suave);font-size:1rem;
+cursor:pointer;padding:4px}}
+.citem .cx:hover{{color:var(--marca)}}
+#ctot{{display:flex;justify-content:space-between;font-weight:600;
+padding:12px 2px 4px;font-size:.95rem}}
+#cwa{{display:block;text-align:center;text-decoration:none;font-weight:500;
+font-size:.78rem;text-transform:uppercase;letter-spacing:.14em;color:#fff;
+background:var(--verde);padding:12px 0;margin-top:8px}}
 </style></head><body>
-<header><a href='/tienda' style='color:#fff;text-decoration:none'><h1>Shopping Asia 🛍️</h1></a><div class='sub'>{_html.escape(titulo)} · {len(items)} resultado{"s" if len(items) != 1 else ""}</div>
+<header><a href='/tienda' style='text-decoration:none'><h1>Shopping Asia 🛍️</h1></a><div class='sub'>{_html.escape(titulo)} · {len(items)} resultado{"s" if len(items) != 1 else ""}</div>
 <form class='bsc' action='/buscar' method='get'>
 <input name='q' type='search' placeholder='Buscá un producto...' value='{_html.escape(query)}'>
 <select name='cat'><option value=''>Todas las categorías</option>{_opciones_cat(cat)}</select>
-<button type='submit'>Buscar</button></form></header>
+<button type='submit'>Buscar</button></form>
+<a class='ayuda' href='/vendedor'>¿Necesitás ayuda? Hablá con un vendedor →</a></header>
 <div class='nota'>{_html.escape(nota)} Si un modelo tiene varias fotos, deslizá sobre la imagen.</div>
 <div class='g'>{"".join(tarjetas)}</div>{extra_abajo}
+<button id='cfab' type='button'>🛒<b id='cnum'>0</b></button>
+<div id='cpanel'><h3>Tu pedido 🛒</h3><div id='clista'></div>
+<div id='ctot'><span>Total</span><span id='ctotv'></span></div>
+<a id='cwa' href='#'>Enviar pedido por WhatsApp</a></div>
 <script>
 window.__marcas=[];
 window.__rm=function(){{window.__marcas.forEach(function(f){{f();}});}};
@@ -721,6 +792,68 @@ document.querySelectorAll('.c').forEach(function(c){{
     d.addEventListener('click',function(){{go(j);}});
   }});
 }});
+
+/* ── CARRITO (acompaña el scroll; localStorage: sobrevive entre páginas) ── */
+(function(){{
+  var K='carrito_sa', mem=[];
+  /* WhatsApp/incógnito pueden bloquear localStorage: el carrito vive
+     igual en memoria de la página (31/08, probado en navegador real) */
+  function leer(){{
+    try{{var v=JSON.parse(localStorage.getItem(K));if(v)return v;}}catch(e){{}}
+    return mem;
+  }}
+  function guardar(c){{
+    mem=c;
+    try{{localStorage.setItem(K,JSON.stringify(c))}}catch(e){{}}
+  }}
+  var fab=document.getElementById('cfab'),pan=document.getElementById('cpanel'),
+      num=document.getElementById('cnum'),lista=document.getElementById('clista'),
+      totv=document.getElementById('ctotv'),cwa=document.getElementById('cwa');
+  if(!fab)return;
+  function gs(n){{return (n||0).toLocaleString('es-PY')+' gs';}}
+  function pintar(){{
+    var c=leer();
+    num.textContent=c.length;
+    fab.style.display=c.length?'block':'none';
+    if(!c.length){{pan.style.display='none';}}
+    lista.innerHTML=c.map(function(it,i){{
+      return "<div class='citem'><img src='/foto/"+it.sku+".jpg'>"+
+        "<div class='ci'><div class='cn'>"+it.nombre+"</div>"+
+        "<div class='cp'>"+gs(it.precio)+"</div></div>"+
+        "<button class='cx' data-i='"+i+"' aria-label='quitar'>✕</button></div>";
+    }}).join('');
+    lista.querySelectorAll('img').forEach(function(im){{
+      im.onerror=function(){{im.style.visibility='hidden';}};
+    }});
+    var tot=c.reduce(function(s,x){{return s+(x.precio||0)}},0);
+    totv.textContent=gs(tot);
+    var txt='¡Hola! Quiero hacer un pedido 🛒\\n'+c.map(function(x){{
+      return 'Producto (SKU): '+x.sku+'\\n  '+x.nombre+' — '+gs(x.precio);
+    }}).join('\\n')+'\\nTOTAL: '+gs(tot);
+    cwa.href='https://wa.me/{WA_PEDIDOS}?text='+encodeURIComponent(txt);
+    lista.querySelectorAll('.cx').forEach(function(b){{
+      b.addEventListener('click',function(){{
+        var c2=leer();c2.splice(parseInt(b.getAttribute('data-i')),1);
+        guardar(c2);pintar();
+      }});
+    }});
+  }}
+  document.querySelectorAll('.agregar').forEach(function(b){{
+    b.addEventListener('click',function(){{
+      var c0=b.closest('.c'),c=leer();
+      c.push({{sku:c0.getAttribute('data-sku'),
+              nombre:c0.getAttribute('data-nombre'),
+              precio:parseInt(c0.getAttribute('data-precio'))||0}});
+      guardar(c);pintar();
+      b.textContent='✓ Agregado';
+      setTimeout(function(){{b.textContent='➕ Agregar';}},900);
+    }});
+  }});
+  fab.addEventListener('click',function(){{
+    pan.style.display=(pan.style.display==='block')?'none':'block';
+  }});
+  pintar();
+}})();
 </script></body></html>"""
     return HTMLResponse(pagina, headers={"Cache-Control": "public, max-age=600"})
 
@@ -774,8 +907,8 @@ async def catalogo_dinamico(termino: str, cat: str = ""):
     _tit = f"“{termino}”" + (f" en {cat}" if cat else "")
     return await _pagina_catalogo(
         items, _tit,
-        "Tocá \"Hacer pedido\" en el que te guste y volvés al chat con "
-        "todos los datos para concretar al toque.",
+        "Tocá \"➕ Agregar\" para juntar varios productos (el carrito te "
+        "sigue a la derecha) o \"Hacer pedido\" si querés uno solo.",
         query=termino, cat=cat)
 
 
@@ -794,22 +927,33 @@ async def tienda_portada():
     if not idx:
         return HTMLResponse("<h3>Catálogo cargando, probá en unos segundos."
                             "</h3>", status_code=503)
+    # DESTACADOS: productos con 3-4 fotos (los mejor presentados); rotan
+    # cada día para que la portada se sienta viva
+    import random as _rnd
+    import time as _tt
+    from . import espejo_fotos as _esp6
+    _cands_dest = [it for it in idx.items
+                   if _esp6.n_sync(it.get("sku")) >= 3]
+    _rnd.Random(int(_tt.time() // 86400)).shuffle(_cands_dest)
+    destacados = _cands_dest[:8]
     cts = {c: len(_td.items_de(idx, c)) for c in _td.CATEGORIAS}
     fichas = "".join(
         f'<a class="catf" href="/cat/{_h.escape(c)}"><b>{_h.escape(c)}</b>'
         f'<span>{n} productos</span></a>'
         for c, n in cts.items() if n)
-    pagina = await _pagina_catalogo([], "", "")
+    pagina = await _pagina_catalogo(
+        destacados, "piezas destacadas", "")
     # portada: sin tarjetas; inyectamos las categorías en lugar de la grilla
-    cuerpo = (f"<div class='nota'>Bienvenido/a a nuestra tienda 🛍️ Buscá "
-              f"arriba lo que necesités (podés elegir una categoría para "
-              f"afinar) o navegá por secciones:</div>"
-              f"<div class='cats'>{fichas}</div>")
+    cuerpo = (f"<div class='nota'>Bienvenido/a a nuestra tienda. Buscá "
+              f"arriba lo que necesités o navegá por secciones:</div>"
+              f"<div class='cats'>{fichas}</div>"
+              f"<div class='nota' style='text-transform:uppercase;"
+              f"letter-spacing:.2em;font-size:.72rem'>— Piezas destacadas</div>")
     h = pagina.body.decode("utf-8")
     import re as _re3
     h = _re3.sub(r"<div class='nota'>.*?</div>", "", h, count=1, flags=_re3.S)
-    h = h.replace("<div class='g'></div>", cuerpo)
-    h = h.replace(" ·\xa00 resultados", "").replace(" · 0 resultados", "")
+    h = h.replace("<div class='g'>", cuerpo + "<div class='g'>", 1)
+    h = h.replace(" · 8 resultados", "").replace(" · 0 resultados", "")
     h = h.replace("</style>", """
 .cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));
 gap:10px;padding:12px}
@@ -848,9 +992,30 @@ async def tienda_categoria(categoria: str, p: int = 1):
     nav += "</div><style>.pgn{display:flex;gap:10px;justify-content:center;padding:6px 0 20px}.pgn a{background:var(--marca);color:#fff;text-decoration:none;padding:10px 18px;border-radius:12px;font-weight:700;font-size:.9rem}</style>"
     r = await _pagina_catalogo(
         pag, f"{categoria} ({total})",
-        "Tocá \"Hacer pedido\" en el que te guste y volvés al chat con "
-        "todos los datos.", cat=categoria, extra_abajo=nav)
+        "Tocá \"➕ Agregar\" para juntar varios (el carrito te sigue a la "
+        "derecha) o \"Hacer pedido\" si querés uno solo.", cat=categoria, extra_abajo=nav)
     return r
+
+
+@app.get("/vendedor")
+async def tienda_vendedor(consulta: str = ""):
+    """Derivación DIRECTA desde el catálogo: usa la misma rotación equitativa
+    de vendedoras que el bot y redirige al WhatsApp personal (31/08)."""
+    from urllib.parse import quote as _q
+
+    from fastapi.responses import RedirectResponse
+
+    from . import vendedores as _vend
+    v = _vend.siguiente()
+    if not v:
+        from fastapi.responses import RedirectResponse as _RR
+        return _RR("/tienda", status_code=302)
+    nombre, numero = v
+    txt = (f"Hola {nombre}, vengo del catálogo de Shopping Asia y quiero "
+           "que me ayudes con mi compra."
+           + (f" Consulta: {consulta[:150]}" if consulta else ""))
+    return RedirectResponse(f"https://wa.me/{numero}?text={_q(txt)}",
+                            status_code=302)
 
 
 @app.get("/buscar")

@@ -473,3 +473,42 @@ arrastre, VERIFICADO con clics en navegador real). La base de conocimiento
 (sección 5.0) le dice al bot que esa es la página que se comparte.
 Cuando la web oficial reviva: avisar a Claude para decidir si la tienda
 sigue (a los clientes les puede gustar más) o vuelve la oficial.
+
+## Monitoreo 31/08/2026 ~22:00
+- Suite de regresión: ✅ 131/131 sin regresiones (corrida local; hubo que instalar httpx en el sandbox, no afecta al repo).
+- ⚠️ No pude leer /aprendizaje ni /diag esta corrida: web_fetch bloqueado por política de origen y el navegador denegó el sitio (corrida automática sin usuario para aprobar). Sin datos de intercambios reales, no hice ajustes.
+- Pendiente para la próxima corrida o revisión manual: verificar productos_cargados en /diag y los "ultimos" de /aprendizaje.
+
+
+## 0.10 — TIENDA EDITORIAL + CARRITO + CAMINO A PAGOS (31/08 noche)
+
+La tienda quedó con diseño editorial de lujo (Cormorant Garamond + Jost,
+minimalismo, piezas destacadas rotando por día en la portada), carrito
+flotante (Agregar por tarjeta, burbuja fija con contador, panel con
+miniaturas/quitar/total, "Enviar pedido por WhatsApp" multi-SKU con TOTAL)
+y derivación directa GET /vendedor (misma rotación equitativa del bot;
+link "¿Necesitás ayuda?" en el header de todas las páginas).
+
+### Camino preparado para PASARELA DE PAGOS (Bancard QR / Google Pay)
+Cuando el dueño quiera activar pagos online, el orden es:
+1. Contratar Bancard vPOS (comercio electrónico): piden RUC, cuenta
+   bancaria y aprobación; entregan public_key + private_key y acceso al
+   panel vPOS staging.
+2. En el cerebro: endpoint POST /pedido (crear pedido con los items del
+   carrito, generar shop_process_id), llamada single_buy de vPOS con
+   md5(private_key+shop_process_id+monto+moneda), y POST /pago-confirmado
+   (webhook de Bancard) que avisa a Kommo/vendedora. El carrito ya junta
+   sku/nombre/precio/total en JS — solo cambia el destino del botón
+   (hoy WhatsApp; con pagos: "Pagar con QR" además de WhatsApp).
+3. QR Bancard sale del mismo vPOS; Google Pay requiere pasarela con
+   soporte (Bancard checkout lo incluye en su página de pago alojada).
+4. Requisito: dominio propio con HTTPS (catalogo.shoppingasia.com.py ya
+   planificado) — Bancard no acepta callbacks a dominios de terceros
+   gratuitos en producción.
+El botón WhatsApp NUNCA se elimina: es el camino sin fricción y el que
+alimenta a Kommo.
+
+### Dominio catalogo.shoppingasia.com.py -> cerebro (pendiente de PORTA)
+Código listo: cuando ese host llegue al cerebro, / redirige a /tienda.
+Pasos: Render -> Custom Domains -> agregar catalogo.shoppingasia.com.py;
+Cloudflare -> CNAME catalogo -> cerebro-kommo.onrender.com.
