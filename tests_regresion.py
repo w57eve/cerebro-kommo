@@ -537,8 +537,13 @@ async def correr():
         _hc = getattr(_rc, "body", b"").decode("utf-8", "replace")
         check("pagina /c: todos los modelos + Hacer pedido (30/08)",
               _hc.count('class="c"') >= 20 and "Hacer pedido" in _hc
-              and "wa.me/595976915333" in _hc
-              and "Producto%20%28SKU%29" in _hc.replace("(", "%28").replace(")", "%29") or "wa.me/595976915333" in _hc)
+              and '/pedido-wa?skus=' in _hc)   # 31/08: pedido directo a vendedora
+        _rpw = await _main2.pedido_wa(texto="Pedido de prueba", skus="123")
+        check("pedido-wa deriva a vendedora con fotos (31/08)",
+              "wa.me/5959" in _rpw.headers.get("location", "")
+              and "915333" not in _rpw.headers.get("location", "")
+              and "onrender.com%2Fl%2F123" in _rpw.headers.get(
+                  "location", "").replace("/", "%2F"))
         _rc2 = await _main2.catalogo_dinamico("zzzznoexiste")
         check("pagina /c sin resultados -> 404 (30/08)",
               getattr(_rc2, "status_code", 0) == 404)

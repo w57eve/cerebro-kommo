@@ -597,8 +597,8 @@ async def _pagina_catalogo(items, titulo, nota, query="", cat="",
             for j in range(min(n_fotos, 4)))
         puntos = ("<div class='dots'>" + "<i></i>" * min(n_fotos, 4) + "</div>"
                   if n_fotos > 1 else "")
-        wa = (f"https://wa.me/{WA_PEDIDOS}?text=" + _q(
-            "¡Hola! Quiero hacer un pedido 🛒\n"
+        wa = ("/pedido-wa?skus=" + sku + "&texto=" + _q(
+            "Quiero hacer un pedido 🛒\n"
             f"Producto (SKU): {sku}\n"
             f"Artículo: {nombre} — {precio}"))
         _cls_fs = "fs multi" if n_fotos > 1 else "fs"
@@ -650,10 +650,11 @@ background:var(--tarjeta);color:var(--texto)}}
 font-family:var(--sans);font-weight:500;background:var(--texto);
 color:var(--fondo);cursor:pointer;font-size:.8rem;text-transform:uppercase;
 letter-spacing:.14em}}
-.ayuda{{display:inline-block;margin-top:9px;font-size:.72rem;color:var(--suave);
-text-decoration:none;text-transform:uppercase;letter-spacing:.18em;
-border-bottom:1px solid var(--linea);padding-bottom:2px}}
-.ayuda:hover{{color:var(--marca);border-color:var(--marca)}}
+.ayuda{{display:inline-flex;align-items:center;gap:7px;margin-top:11px;
+font-size:.72rem;color:#fff;background:var(--marca);text-decoration:none;
+text-transform:uppercase;letter-spacing:.16em;font-weight:500;
+padding:8px 16px;border-radius:999px;box-shadow:0 3px 12px rgba(179,19,79,.28)}}
+.ayuda:hover{{background:var(--texto)}}
 .nota{{padding:16px 20px 2px;color:var(--suave);font-size:.83rem;
 max-width:70ch;line-height:1.55}}
 .g{{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));
@@ -701,14 +702,16 @@ cursor:pointer;transition:background .2s}}
 .btn.agregar{{background:transparent;color:var(--texto);
 border:1px solid var(--texto);margin-bottom:0;padding:9px 0}}
 .btn.agregar:hover{{border-color:var(--marca);color:var(--marca)}}
-#cfab{{position:fixed;right:16px;bottom:20px;z-index:50;width:56px;height:56px;
+#cfab{{position:fixed;right:14px;top:50%;transform:translateY(-50%);
+z-index:50;width:56px;height:56px;
 border-radius:50%;border:1px solid var(--linea);background:var(--texto);
 color:var(--fondo);font-size:23px;box-shadow:0 8px 26px rgba(0,0,0,.28);
 cursor:pointer;display:none}}
 #cfab b{{position:absolute;top:-5px;right:-5px;background:var(--marca);
 color:#fff;font-size:.7rem;min-width:22px;height:22px;border-radius:11px;
 display:flex;align-items:center;justify-content:center;padding:0 4px}}
-#cpanel{{position:fixed;right:12px;bottom:88px;z-index:50;width:min(340px,92vw);
+#cpanel{{position:fixed;right:80px;top:50%;transform:translateY(-50%);
+z-index:50;width:min(340px,86vw);
 max-height:62vh;overflow-y:auto;background:var(--tarjeta);
 border:1px solid var(--linea);box-shadow:0 18px 48px rgba(0,0,0,.25);
 display:none;padding:16px}}
@@ -736,7 +739,7 @@ background:var(--verde);padding:12px 0;margin-top:8px}}
 <input name='q' type='search' placeholder='Buscá un producto...' value='{_html.escape(query)}'>
 <select name='cat'><option value=''>Todas las categorías</option>{_opciones_cat(cat)}</select>
 <button type='submit'>Buscar</button></form>
-<a class='ayuda' href='/vendedor'>¿Necesitás ayuda? Hablá con un vendedor →</a></header>
+<a class='ayuda' href='/vendedor'>💬 ¿Necesitás ayuda? Hablá con un vendedor</a></header>
 <div class='nota'>{_html.escape(nota)} Si un modelo tiene varias fotos, deslizá sobre la imagen.</div>
 <div class='g'>{"".join(tarjetas)}</div>{extra_abajo}
 <button id='cfab' type='button'>🛒<b id='cnum'>0</b></button>
@@ -827,10 +830,11 @@ document.querySelectorAll('.c').forEach(function(c){{
     }});
     var tot=c.reduce(function(s,x){{return s+(x.precio||0)}},0);
     totv.textContent=gs(tot);
-    var txt='¡Hola! Quiero hacer un pedido 🛒\\n'+c.map(function(x){{
+    var txt='Quiero hacer un pedido 🛒\\n'+c.map(function(x){{
       return 'Producto (SKU): '+x.sku+'\\n  '+x.nombre+' — '+gs(x.precio);
     }}).join('\\n')+'\\nTOTAL: '+gs(tot);
-    cwa.href='https://wa.me/{WA_PEDIDOS}?text='+encodeURIComponent(txt);
+    var skus=c.map(function(x){{return x.sku}}).join(',');
+    cwa.href='/pedido-wa?skus='+skus+'&texto='+encodeURIComponent(txt);
     lista.querySelectorAll('.cx').forEach(function(b){{
       b.addEventListener('click',function(){{
         var c2=leer();c2.splice(parseInt(b.getAttribute('data-i')),1);
@@ -1015,6 +1019,33 @@ async def tienda_vendedor(consulta: str = ""):
            "que me ayudes con mi compra."
            + (f" Consulta: {consulta[:150]}" if consulta else ""))
     return RedirectResponse(f"https://wa.me/{numero}?text={_q(txt)}",
+                            status_code=302)
+
+
+@app.get("/pedido-wa")
+async def pedido_wa(texto: str = "", skus: str = ""):
+    """Pedidos del catálogo DIRECTO a la vendedora de turno (31/08: pedido
+    del dueño). El texto lleva SKUs+precios+TOTAL y un link /l con las FOTOS
+    de lo elegido (la vista previa de WhatsApp la muestra en miniatura)."""
+    from urllib.parse import quote as _q
+
+    from fastapi.responses import RedirectResponse
+
+    from . import vendedores as _vend
+    v = _vend.siguiente()
+    if not v:
+        return RedirectResponse("/tienda", status_code=302)
+    nombre, numero = v
+    cuerpo = (texto or "").strip()[:1200]
+    if skus:
+        _sk = ",".join("".join(ch for ch in s if ch.isalnum())[:20]
+                       for s in skus.split(",")[:8] if s.strip())
+        if _sk:
+            cuerpo += ("\n📷 Fotos del pedido: "
+                       f"https://cerebro-kommo.onrender.com/l/{_sk}")
+    msj = (f"Hola {nombre}, vengo del catálogo de Shopping Asia 🛍️\n"
+           + (cuerpo or "Quiero hacer un pedido."))
+    return RedirectResponse(f"https://wa.me/{numero}?text={_q(msj)}",
                             status_code=302)
 
 
