@@ -148,6 +148,27 @@ async def raiz(request: Request):
     return RedirectResponse("/tienda", status_code=302)
 
 
+@app.get("/sw.js")
+async def sw_matador():
+    """El catálogo chico (flyers) era una PWA con service worker cache-first
+    en catalogo.shoppingasia.com.py. Al migrar el dominio a la tienda, los
+    navegadores que lo visitaron siguen sirviendo la app VIEJA desde caché
+    (se ve vacía/rota). Este SW se instala encima, borra los cachés, se
+    desregistra y recarga la página del cliente (01/09)."""
+    from fastapi.responses import Response
+    js = (
+        "self.addEventListener('install',e=>self.skipWaiting());"
+        "self.addEventListener('activate',e=>{e.waitUntil((async()=>{"
+        "try{const ks=await caches.keys();"
+        "await Promise.all(ks.map(k=>caches.delete(k)));}catch(_){}"
+        "await self.registration.unregister();"
+        "const cs=await self.clients.matchAll({type:'window'});"
+        "cs.forEach(c=>{try{c.navigate(c.url);}catch(_){}});"
+        "})());});")
+    return Response(js, media_type="application/javascript",
+                    headers={"Cache-Control": "no-cache, max-age=0"})
+
+
 @app.get("/robots.txt")
 async def robots():
     from fastapi.responses import PlainTextResponse

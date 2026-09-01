@@ -810,6 +810,14 @@ async def correr():
                   _esp2.url_foto("7457006006001", 2)
                   == f"{_esp2.URL_BASE2}/7457006006001_3.jpg")
 
+            # ── SW MATADOR (01/09): limpia la PWA vieja de flyers del dominio
+            _rsw = await _main3.sw_matador()
+            _jsw = _rsw.body.decode()
+            check("sw.js matador: desregistra y recarga (01/09)",
+                  "unregister" in _jsw and "caches.delete" in _jsw
+                  and "javascript" in _rsw.media_type
+                  and "no-cache" in _rsw.headers.get("cache-control", ""))
+
             # SEGURO DE VIDA (01/09): el webhook de Kommo llega SIN clave.
             # La clave del panel debe ser OTRA variable — si alguien vuelve
             # a usar _WEBHOOK_CLAVE en el probador/raíz, el dueño podría
