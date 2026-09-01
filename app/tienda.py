@@ -135,16 +135,7 @@ def items_de(idx, categoria: str, con_foto_primero=True) -> list:
     # regla del dueño (31/08): mostrar SOLO los que tienen foto SERVIBLE
     # AHORA — con la web caída, la foto del storage no cuenta (mostraba
     # tarjetas vacías arriba); espejo y catálogo chico siempre sirven.
-    from . import catalogo_chico as _chi
-    from . import espejo_fotos as _esp
-
-    def _servible(it):
-        sku = it.get("sku")
-        if _esp.n_sync(sku) > 0 or _chi.foto_sync(sku):
-            return True
-        return bool(it.get("imagenes")) and _esp.storage_ok["v"]
-
-    con_foto = [it for it in items if _servible(it)]
+    con_foto = [it for it in items if busqueda.it_foto(it)]
     if len(con_foto) >= 12:
         return con_foto
     return items

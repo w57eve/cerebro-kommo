@@ -485,12 +485,15 @@ class Indice:
 
 
 def it_foto(it) -> bool:
-    if it.get("imagenes"):
-        return True
-    try:   # espejo de fotos y catálogo chico (caches en memoria; 0 red)
+    """Foto SERVIBLE AHORA: espejo o catálogo chico siempre valen; la del
+    storage de la web solo si el storage está respondiendo (31/08: con el
+    VPS caído salían primeros productos con tarjeta en blanco)."""
+    try:   # caches en memoria; 0 red
         from . import catalogo_chico as _chi
         from . import espejo_fotos as _esp
         sku = it.get("sku")
-        return _esp.n_sync(sku) > 0 or bool(_chi.foto_sync(sku))
+        if _esp.n_sync(sku) > 0 or _chi.foto_sync(sku):
+            return True
+        return bool(it.get("imagenes")) and _esp.storage_ok["v"]
     except Exception:
-        return False
+        return bool(it.get("imagenes"))

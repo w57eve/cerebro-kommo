@@ -1100,9 +1100,7 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             try:
                 from . import espejo_fotos as _esp3
                 await _esp3._asegurar()
-                _cf = [x for x in _res200
-                       if x.get("imagenes") or _esp3.n_sync(x.get("sku"))
-                       or catalogo_chico.foto_sync(x.get("sku"))]
+                _cf = [x for x in _res200 if busqueda.it_foto(x)]
             except Exception:
                 _cf = []
             # solo con foto (regla del dueño 31/08); si casi ninguno tiene,

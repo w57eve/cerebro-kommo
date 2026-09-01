@@ -898,10 +898,8 @@ async def catalogo_dinamico(termino: str, cat: str = ""):
     # ninguno tiene, se muestran todos para no dejar la página vacía)
     from . import espejo_fotos as _esp2
     await _esp2._asegurar()
-    from . import catalogo_chico as _chi2
-    _con_foto = [x for x in items
-                 if x.get("imagenes") or _esp2.n_sync(x.get("sku"))
-                 or _chi2.foto_sync(x.get("sku"))]
+    from . import busqueda as _bq2
+    _con_foto = [x for x in items if _bq2.it_foto(x)]
     if len(_con_foto) >= 2:
         items = _con_foto
     if not items:

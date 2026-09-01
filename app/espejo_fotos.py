@@ -38,6 +38,18 @@ async def _asegurar():
     except Exception as e:
         print(f"[ESPEJO] índice no disponible: {e}", flush=True)
         _cache["ts"] = time.time()   # reintenta en ~10 min
+    # de paso, sondear si el storage de la web volvió (VPS): así el criterio
+    # "foto servible" se actualiza solo, sin esperar a que un cliente pida
+    # una foto del storage
+    try:
+        async with httpx.AsyncClient(timeout=5) as cli:
+            r2 = await cli.get("https://www.shoppingasia.com.py/storage/",
+                               headers={"User-Agent": "cerebro"})
+        storage_ok["v"] = r2.status_code < 500
+    except Exception:
+        storage_ok["v"] = False
+    print(f"[ESPEJO] storage web: {'OK' if storage_ok['v'] else 'CAIDO'}",
+          flush=True)
 
 
 async def cantidad(sku) -> int:
