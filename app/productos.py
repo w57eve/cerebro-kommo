@@ -168,7 +168,7 @@ import os as _os
 
 # Base pública del cerebro: sirve las fotos OPTIMIZADAS (miniaturas rápidas)
 # en /foto/<sku>.jpg — la preview de WhatsApp carga al instante.
-FOTO_BASE = (_os.getenv("FOTO_BASE", "https://cerebro-kommo.onrender.com")
+FOTO_BASE = (_os.getenv("FOTO_BASE", "https://catalogo.shoppingasia.com.py")
              or "").rstrip("/")
 
 

@@ -72,6 +72,11 @@ REGLAS = [
          # abreviatura chat "dnd" = dónde (31/08: "hla dnd es" cayó al
          # buscador sin candidatos)
          "dnd",
+         # "¿de dónde son?" y sus variantes/typos (01/09: caía al buscador;
+         # la gente lo escribe de mil formas)
+         "de donde", "donde son", "de dond", "dedonde", "de onde",
+         "de adonde", "de aonde", "d donde", "de dnde", "de dode",
+         "de done son", "de que ciudad", "de que zona", "de que parte",
          "ubicados", "como llego", "como llegar", "localizacion", "mapa",
          "maps", "retiro", "retirar", "sucursal", "local"],
         "Estamos en Av. Eusebio Ayala 1451, frente a la comisaría séptima, "

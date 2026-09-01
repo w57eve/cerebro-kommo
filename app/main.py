@@ -1098,7 +1098,7 @@ async def pedido_wa(texto: str = "", skus: str = ""):
                        for s in skus.split(",")[:8] if s.strip())
         if _sk:
             cuerpo += ("\n📷 Fotos del pedido: "
-                       f"https://cerebro-kommo.onrender.com/l/{_sk}")
+                       f"https://catalogo.shoppingasia.com.py/l/{_sk}")
     msj = (f"Hola {nombre}, vengo del catálogo de Shopping Asia 🛍️\n"
            + (cuerpo or "Quiero hacer un pedido."))
     return RedirectResponse(f"https://wa.me/{numero}?text={_q(msj)}",

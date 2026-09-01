@@ -85,7 +85,7 @@ buscar en este orden, sin frustrar al cliente:
 La página oficial (www.shoppingasia.com.py) está temporalmente fuera de
 servicio y NO se pasa a los clientes por ahora. La "página" que se comparte
 es NUESTRA TIENDA con el catálogo completo, categorías y buscador:
-**https://cerebro-kommo.onrender.com/tienda**
+**https://catalogo.shoppingasia.com.py/tienda**
 - Si el cliente pide "la página", "el link de la tienda", "dónde veo todo":
   pasar ese link.
 - Si un cliente avisa que www.shoppingasia.com.py no le anda: disculpas
@@ -118,8 +118,8 @@ cuando el cliente pregunta por el **talle/calce** de un calzado (ej. "¿tienen 4
    conviene considerar **un número más** del que usa normalmente.
 2. **Pasar NUESTRO catálogo de calzados con fotos** (reemplaza al catálogo
    de flyers desde el 31/08; tiene más fotos y varias por modelo):
-   https://cerebro-kommo.onrender.com/c/calzado%20irun (CROCS:
-   https://cerebro-kommo.onrender.com/c/crocs) y
+   https://catalogo.shoppingasia.com.py/c/calzado%20irun (CROCS:
+   https://catalogo.shoppingasia.com.py/c/crocs) y
    explicarle cómo usarlo, en simple: *ahí ves todos los modelos y talles
    disponibles; elegí el calzado que te gusta y tocá el botón "Hacer pedido" —
    eso te trae de vuelta acá con la info del calzado elegido*.

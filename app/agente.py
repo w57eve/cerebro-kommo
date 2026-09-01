@@ -339,7 +339,8 @@ Reglas duras (no las rompas nunca):
   DOS intentos seguís sin acertar el producto, no sigas insistiendo: disculpa
   breve y [DERIVAR]. Un cliente peleando con un bot es una venta perdida.
 - **CATÁLOGO PROPIO CON FOTOS:** cuando el contexto te dé un link de
-  cerebro-kommo.onrender.com/c/... o /l/..., ese es NUESTRO catálogo con
+  catalogo.shoppingasia.com.py/c/... o /l/... (o cerebro-kommo.onrender.com),
+  ese es NUESTRO catálogo con
   fotos (deslizables si el modelo tiene varias), precios y botón
   'Hacer pedido' que trae al cliente de vuelta acá con los datos. Usalo TAL
   CUAL, nunca lo inventes ni lo modifiques.
@@ -1008,9 +1009,9 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             "el calce que dijo) y nada más. El sistema agrega el contacto del "
             "vendedor automáticamente al final de tu mensaje.\n")
 
-    _link_calzados = ("https://cerebro-kommo.onrender.com/c/crocs"
+    _link_calzados = ("https://catalogo.shoppingasia.com.py/c/crocs"
                       if "croc" in _msg_n or "crocs" in _msg_n else
-                      "https://cerebro-kommo.onrender.com/c/calzado%20irun")
+                      "https://catalogo.shoppingasia.com.py/c/calzado%20irun")
     if pauta_term and not eligio:
         contexto += (
             "CONSULTA DE CALZADO (regla fija): pasá NUESTRO CATÁLOGO DE "
@@ -1108,7 +1109,7 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             _n_total = len(_cf) if len(_cf) >= 2 else len(_res200)
         if term_web and _n_total > len(sugeridos):
             from urllib.parse import quote as _qc
-            link_lista = ("https://cerebro-kommo.onrender.com/c/"
+            link_lista = ("https://catalogo.shoppingasia.com.py/c/"
                           + _qc(term_web))
             contexto += (
                 f"CATÁLOGO PROPIO con los {_n_total} modelos de esta "
@@ -1122,7 +1123,7 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
         else:
             _skus_l = [str(s.get("sku")) for s in sugeridos[:6] if s.get("sku")]
             if len(_skus_l) >= 2:
-                link_lista = ("https://cerebro-kommo.onrender.com/l/"
+                link_lista = ("https://catalogo.shoppingasia.com.py/l/"
                               + ",".join(_skus_l))
                 contexto += (
                     "Link con TODAS estas opciones juntas (foto, nombre, "

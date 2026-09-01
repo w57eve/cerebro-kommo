@@ -335,7 +335,7 @@ async def correr():
           "CONSULTA DE CALZADO" in CTX["ctx"]
           and "Acrobático" not in CTX["ctx"]
           and "Senderismo" not in CTX["ctx"]
-          and "onrender.com/c/calzado" in CTX["ctx"]
+          and "shoppingasia.com.py/c/calzado" in CTX["ctx"]
           and "OTRO producto" in CTX["ctx"])
     # plural "el todos terrenos" también es la jerga (29/08 Misael)
     await agente.procesar("Yo estoy interesado por el todos terrenos")
@@ -453,10 +453,10 @@ async def correr():
           sum(1 for l in CTX["ctx"].splitlines() if l.startswith("- SKU")) == 0
           and "catálogo de" in CTX["ctx"])
     check("grasep: sin link de lista /l (30/08)",
-          "onrender.com/l/" not in CTX["ctx"])
+          "shoppingasia.com.py/l/" not in CTX["ctx"])
     await agente.procesar("tienen crocs?", historial=[], lead_id="t-croc")
     check("crocs va a su catálogo propio (31/08)",
-          "onrender.com/c/crocs" in CTX["ctx"])
+          "shoppingasia.com.py/c/crocs" in CTX["ctx"])
     # arnés: rubro normal con 98 productos; el buscador debe traerlos
     await agente.procesar("Tienen arnés para perros?", historial=[],
                           lead_id="t-arn")
@@ -497,7 +497,7 @@ async def correr():
     # ahora manda el catálogo dinámico /c con TODOS los modelos; /l queda
     # para cuando no hay término verificado
     _m = _re2.search(
-        r"https://cerebro-kommo\.onrender\.com/(c/[^\s]+|l/[\d,]+)",
+        r"https://catalogo\.shoppingasia\.com\.py/(c/[^\s]+|l/[\d,]+)",
         CTX["ctx"])
     check("link de lista /c|/l con candidatos reales (30/08)", bool(_m))
     if _m:
@@ -526,7 +526,7 @@ async def correr():
     await agente.procesar("Tienen arnés para perros?", historial=[],
                           lead_id="t-cat")
     check("agente ofrece /c con TODOS los modelos (30/08)",
-          "onrender.com/c/" in CTX["ctx"]
+          "shoppingasia.com.py/c/" in CTX["ctx"]
           and "CATÁLOGO PROPIO" in CTX["ctx"])
     try:
         from app import main as _main2
@@ -542,7 +542,7 @@ async def correr():
         check("pedido-wa deriva a vendedora con fotos (31/08)",
               "wa.me/5959" in _rpw.headers.get("location", "")
               and "915333" not in _rpw.headers.get("location", "")
-              and "onrender.com%2Fl%2F123" in _rpw.headers.get(
+              and "shoppingasia.com.py%2Fl%2F123" in _rpw.headers.get(
                   "location", "").replace("/", "%2F"))
         _rc2 = await _main2.catalogo_dinamico("zzzznoexiste")
         check("pagina /c sin resultados -> 404 (30/08)",
@@ -578,6 +578,18 @@ async def correr():
         _r = reglas.responder(_q)
         check(f"abreviatura dnd -> regla ubicacion (31/08): {_q!r}",
               _r and "Eusebio Ayala" in _r["texto"])
+
+    # "¿de dónde son?" y sus mil formas de escribirlo -> regla de ubicación
+    for _q in ["de donde son?", "De dónde son", "dedonde son",
+               "de onde son ustedes", "son de donde", "DE ADONDE SON",
+               "d donde son", "de dode son", "de que ciudad son"]:
+        _r = reglas.responder(_q)
+        check(f"de donde son -> regla ubicacion (01/09): {_q!r}",
+              _r and "Eusebio Ayala" in _r["texto"])
+    # ...sin robarle consultas de producto al buscador
+    for _q in ["tenes zapatillas de donna", "busco perfume de dama"]:
+        check(f"'{_q}' sigue yendo al buscador (01/09)",
+              reglas.responder(_q) is None)
 
     # ── MONITOREO 01/09 ──
     # "me sale totalmente otra cosa en el link que me mandan" (queja de Camila)
@@ -637,7 +649,7 @@ async def correr():
           sum(1 for l in CTX["ctx"].splitlines()
               if l.startswith("- SKU")) == 0
           and "CONSULTA DE CALZADO" in CTX["ctx"]
-          and "onrender.com/c/calzado" in CTX["ctx"])   # catálogo propio (31/08)
+          and "shoppingasia.com.py/c/calzado" in CTX["ctx"])   # catálogo propio (31/08)
     await agente.procesar("y mochilas tenes?", historial=h_mar,
                           lead_id="t-mar2")
     check("cambio de rubro en hilo calzado sigue libre (30/08)",
@@ -688,8 +700,8 @@ async def correr():
           sum(1 for l in CTX["ctx"].splitlines()
               if l.startswith("- SKU")) == 0
           and "CONSULTA DE CALZADO" in CTX["ctx"]
-          and "onrender.com/c/calzado" in CTX["ctx"]
-          and "onrender.com/l/" not in CTX["ctx"])
+          and "shoppingasia.com.py/c/calzado" in CTX["ctx"]
+          and "shoppingasia.com.py/l/" not in CTX["ctx"])
     check("termino sin gs/mil (31/08 Maggie)",
           productos.indice_actual().termino_web(
               "Carritos para bebes hasta 350mil gs") == "carritos bebes")
