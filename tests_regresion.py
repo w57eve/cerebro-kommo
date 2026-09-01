@@ -800,6 +800,16 @@ async def correr():
             _r2 = await _main3.raiz(_ReqStub({"clave": "mala"}))
             check("raíz con clave incorrecta también va a /tienda (01/09)",
                   getattr(_r2, "status_code", 0) == 302)
+            # ── ESPEJO EN DOS REPOS (01/09): par -> fotos, impar -> fotos2
+            from app import espejo_fotos as _esp2
+            check("espejo: SKU par va al repo fotos (01/09)",
+                  "/fotos/" in _esp2.url_foto("7457006006100") + "/")
+            check("espejo: SKU impar va al repo fotos2 (01/09)",
+                  "/fotos2/" in _esp2.url_foto("7457006006001") + "/")
+            check("espejo: la 3ra foto respeta el reparto (01/09)",
+                  _esp2.url_foto("7457006006001", 2)
+                  == f"{_esp2.URL_BASE2}/7457006006001_3.jpg")
+
             # SEGURO DE VIDA (01/09): el webhook de Kommo llega SIN clave.
             # La clave del panel debe ser OTRA variable — si alguien vuelve
             # a usar _WEBHOOK_CLAVE en el probador/raíz, el dueño podría

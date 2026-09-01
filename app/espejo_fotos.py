@@ -13,6 +13,11 @@ import time
 import httpx
 
 URL_BASE = os.getenv("ESPEJO_FOTOS_URL", "https://w57eve.github.io/fotos")
+# 01/09: el espejo se partió en DOS repos por el límite de 1 GB de GitHub
+# Pages. Regla de reparto (idéntica en generar_espejo.py): SKU con último
+# dígito PAR -> fotos, IMPAR -> fotos2. El indice.json (completo) vive en
+# el repo 1.
+URL_BASE2 = os.getenv("ESPEJO_FOTOS2_URL", "https://w57eve.github.io/fotos2")
 
 _cache = {"ts": 0.0, "n": {}}
 # ¿el storage de la web está respondiendo? (lo actualiza /foto en main)
@@ -66,5 +71,7 @@ def n_sync(sku) -> int:
 def url_foto(sku, i: int = 0) -> str:
     """URL de la i-ésima foto del espejo (i=0 es la principal)."""
     sku = str(sku or "").strip()
-    return (f"{URL_BASE}/{sku}.jpg" if i == 0
-            else f"{URL_BASE}/{sku}_{i + 1}.jpg")
+    ult = sku[-1] if sku and sku[-1].isdigit() else "0"
+    base = URL_BASE if int(ult) % 2 == 0 else URL_BASE2
+    return (f"{base}/{sku}.jpg" if i == 0
+            else f"{base}/{sku}_{i + 1}.jpg")

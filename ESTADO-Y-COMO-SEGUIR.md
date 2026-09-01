@@ -529,6 +529,25 @@ el cerebro los usa de respaldo de fotos. Orden correcto (01/09):
    https://w57eve.github.io/catalogo/datos/catalogo.json -> debe seguir dando
    JSON (respaldo de fotos vivo).
 
+## 0.11 — BACK-UP WEB: LAS FOTOS DE LA WEB, SIN ESPERAR AL VPS (01/09)
+El dueño consiguió el respaldo real de las fotos de la web: D:\Back-up Web\
+imagenes (22.655 archivos <sku>.jpg/png). Ya no dependemos de que el VPS
+reviva para el salto de cobertura (~14.800 SKUs nuevos con foto).
+- generar_espejo.py: fuente nueva "Back-up Web" (primera prioridad: la foto
+  oficial de la web es la principal).
+- El espejo se parte en DOS repos por el limite de 1 GB de GitHub Pages:
+  SKU con ultimo digito PAR -> repo "fotos" (sitio/), IMPAR -> "fotos2"
+  (sitio2/). El indice.json completo vive en el repo 1. El cerebro
+  (espejo_fotos.url_foto) aplica la misma regla; env opcional
+  ESPEJO_FOTOS2_URL.
+- Pasos del dueño: crear repo "fotos2" (Public) en GitHub -> publicar.bat
+  (genera y publica repo 1; avisa de sitio2) -> primera_publicacion_fotos2.bat
+  -> en fotos2: Settings -> Pages -> main -> actualizar_github.bat.
+- App de precios: los datos ESTAN publicados y la web responde (verificado
+  01/09); lo que esta congelado es la SINCRONIZACION (panel PORTA caido,
+  datos al 29/08). Los SKUs cargados despues del 29/08 no aparecen hasta
+  que PORTA reviva y se corra sincronizar.py / publicar_rapido.bat.
+
 ## Monitoreo 01/09/2026 (mañana)
 - 135 mensajes, 5 derivados (3,7%), 0 fallbacks. Catálogo OK (49.536 prod, fetch 200). Suite 136/136.
 - Ajusté: (1) reglas.py — "mandan" suelto en FAQ envíos capturaba "el link que me mandan" (queja de Camila, lead 24919560) y respondía envíos: ahora "mandan a/hasta/por". (2) busqueda.py — grupo pecera/pescera/pesera (typo traía cañas de pescar). +5 tests. Falta doble clic a actualizar_github.bat.
