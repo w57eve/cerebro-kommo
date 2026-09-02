@@ -690,6 +690,42 @@ async def correr():
           any("BOMBILLA" in x["nombre"].upper() or "FOCO" in x["nombre"].upper()
               for x in _ixa.buscar("foquito led", 3)))
 
+    # ── OFERTA FLASH v2 (02/09): link de catálogo + derivación con datos ──
+    _llm_capturador()
+    await agente.procesar("Quiero más información",
+                          ad_id="flash:7457006006001")
+    check("flash: ctx trae link /c con relacionados (02/09)",
+          "catalogo.shoppingasia.com.py/c/" in CTX["ctx"])
+    llm.responder = lambda s, c, m: "Te paso con una vendedora.\n[DERIVAR]"
+    _rf = await agente.procesar("quiero comprarlo ya",
+                                ad_id="flash:7457006006001",
+                                historial=[{"cliente": "hola",
+                                            "agente": "hola!"}],
+                                lead_id="tfx1")
+    from urllib.parse import unquote as _unq
+    _tf = _unq(_rf["texto"])
+    check("flash: derivación IA lleva producto+link+sku al vendedor (02/09)",
+          _rf["derivar"] and "OFERTA FLASH" in _tf
+          and "catalogo.shoppingasia.com.py/c/" in _tf
+          and "7457006006001" in _tf)
+    _rf2 = await agente.procesar("quiero hablar con un vendedor",
+                                 ad_id="flash:7457006006001", lead_id="tfx2")
+    _tf2 = _unq(_rf2["texto"])
+    check("flash: derivación por regla lleva producto+sku (02/09)",
+          _rf2["derivar"] and "OFERTA FLASH" in _tf2
+          and "7457006006001" in _tf2)
+    _llm_capturador()
+
+    # búsqueda por SKU en la tienda (02/09: "deficitaria")
+    _rs1 = await _main01.catalogo_dinamico("7457006006001")
+    check("tienda: SKU exacto -> ese producto (02/09)",
+          _rs1.status_code == 200
+          and _rs1.body.decode().count('class="c"') == 1
+          and "7457006006001" in _rs1.body.decode())
+    _rs2 = await _main01.catalogo_dinamico("745700600")
+    check("tienda: SKU parcial -> coincidencias (02/09)",
+          _rs2.body.decode().count('class="c"') >= 5)
+
     # ── MONITOREO 01/09 ──
     # "me sale totalmente otra cosa en el link que me mandan" (queja de Camila)
     # caía en la FAQ de envíos por la clave suelta "mandan" -> pérdida de hilo

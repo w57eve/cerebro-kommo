@@ -475,7 +475,16 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
         return {"texto": pref + r["texto"], "derivar": False, "candidatos": None}
     if r and r["tipo"] == "derivar":
         sku = productos.extraer_sku(mensaje) or ""
-        d = vendedores.mensaje_derivacion(sku=sku, consulta=mensaje[:180], lead_id=lead_id)
+        _cons_r = mensaje[:180]
+        # lead de OFERTA FLASH: el vendedor recibe el producto exacto (02/09)
+        if not sku and ad_id.startswith("flash:"):
+            sku = ad_id.split(":", 1)[1]
+            _it_r = await productos.por_sku(sku)
+            if _it_r:
+                _cons_r = ("OFERTA FLASH: " + (_it_r.get("nombre") or "")[:60]
+                           + " | " + mensaje[:110])
+        d = vendedores.mensaje_derivacion(sku=sku, consulta=_cons_r,
+                                          lead_id=lead_id)
         return {"texto": pref + d["texto"], "derivar": True, "candidatos": None}
 
     # 2) Datos de producto (contexto para el LLM y para la respuesta templada)
@@ -523,16 +532,32 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     mensaje = _URL_RE.sub(" ", mensaje).strip() or mensaje
     # OFERTA FLASH (01/09): ad_id "flash:<sku>" = publicación individual de
     # UN artículo (el SKU vino en el utm del link). Producto exacto, directo.
+    _flash_sku, _flash_it, _flash_link = "", None, ""
     if ad_id.startswith("flash:"):
         _sku_fl = ad_id.split(":", 1)[1]
         _it_fl = await productos.por_sku(_sku_fl)
         if _it_fl:
+            _flash_sku, _flash_it = _sku_fl, _it_fl
+            # link del CATÁLOGO con este producto y los relacionados (ahí el
+            # cliente ve fotos, precios y tiene botón Hacer pedido — la foto
+            # suelta no le deja pedir; 02/09 pedido del dueño)
+            _ix_fl = productos.indice_actual()
+            _term_fl = (_ix_fl.termino_web(_it_fl.get("nombre") or "")
+                        if _ix_fl else "")
+            if _term_fl:
+                from urllib.parse import quote as _q_fl
+                _flash_link = ("https://catalogo.shoppingasia.com.py/c/"
+                               + _q_fl(_term_fl))
             ctx_ad = ("El cliente escribe por una publicación OFERTA FLASH "
                       "de ESTE artículo exacto:\n" + productos.a_texto(_it_fl)
                       + "\nSaludá confirmando el artículo por su nombre, dale "
                       "el precio y preguntá cuántos quiere o su talle/color "
                       "si aplica. NO busques otra cosa ni ofrezcas listas: es "
-                      "ESTE producto.\n")
+                      "ESTE producto.\n"
+                      + (f"Para que vea el artículo con fotos, precios, botón "
+                         f"'Hacer pedido' y los modelos relacionados, pasale "
+                         f"este link del catálogo TAL CUAL: {_flash_link}\n"
+                         if _flash_link else ""))
         else:
             ctx_ad = ("El cliente viene de una publicación OFERTA FLASH pero "
                       "el SKU no está en el catálogo: preguntale qué artículo "
@@ -1263,8 +1288,18 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                 for h in (historial or [])]
             texto = _verificar_precios_texto(texto, _fuentes_precio)
             if derivar:
+                # OFERTA FLASH (02/09): el vendedor recibe el producto EXACTO
+                # de la publicación (nombre + link del catálogo), no solo el
+                # mensaje suelto del cliente
+                _cons_d = mensaje[:180]
+                if _flash_it:
+                    _cons_d = ("OFERTA FLASH: "
+                               + (_flash_it.get("nombre") or "")[:60]
+                               + (f" — {_flash_link}" if _flash_link else "")
+                               + " | " + mensaje[:100])
                 d = vendedores.mensaje_derivacion(
-                    sku=(sku or ""), consulta=mensaje[:180], lead_id=lead_id)
+                    sku=(sku or _flash_sku), consulta=_cons_d,
+                    lead_id=lead_id)
                 texto = (texto + "\n\n" + d["texto"]).strip()
                 return {"texto": texto, "derivar": True, "candidatos": len(sugeridos)}
             if texto:

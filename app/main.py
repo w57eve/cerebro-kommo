@@ -956,7 +956,22 @@ async def catalogo_dinamico(termino: str, cat: str = ""):
     termino = _re2.sub(r"[^\w\sáéíóúñü-]", " ", termino)[:60].strip()
     if not termino:
         return HTMLResponse("<h3>Búsqueda vacía.</h3>", status_code=404)
-    items = await _prod.buscar(termino, limite=200)
+    # BÚSQUEDA POR SKU (02/09: "la búsqueda por sku es deficitaria"):
+    # si escriben un código, va directo al producto — y si es un código
+    # parcial (6+ dígitos), a todos los SKUs que lo contengan.
+    items = []
+    _m_sku = _re2.fullmatch(r"[\s#]*(\d{6,14})[\s]*", termino)
+    if _m_sku:
+        _cod = _m_sku.group(1)
+        _it_ex = await _prod.por_sku(_cod)
+        if _it_ex:
+            items = [_it_ex]
+        else:
+            _ix_s = _prod.indice_actual()
+            items = [it for it in (_ix_s.items if _ix_s else [])
+                     if _cod in str(it.get("sku") or "")][:60]
+    if not items:
+        items = await _prod.buscar(termino, limite=200)
     if cat:
         items = _td.filtrar(_prod.indice_actual(), items, cat)
     # prioridad del dueño (31/08): pasar SOLO los que tienen foto (si casi
