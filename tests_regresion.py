@@ -545,8 +545,11 @@ async def correr():
               and "shoppingasia.com.py%2Fl%2F123" in _rpw.headers.get(
                   "location", "").replace("/", "%2F"))
         _rc2 = await _main2.catalogo_dinamico("zzzznoexiste")
-        check("pagina /c sin resultados -> 404 (30/08)",
-              getattr(_rc2, "status_code", 0) == 404)
+        # 01/09 (pedido del dueño): sin resultados ya NO se "borra la página":
+        # queda la tienda con aviso elegante bajo el buscador
+        check("pagina /c sin resultados -> tienda con aviso (01/09)",
+              getattr(_rc2, "status_code", 0) == 200
+              and "No encontramos resultados" in _rc2.body.decode())
 
     # ── AUDITORÍA DEL BUSCADOR (30/08: "que dé resultados correctos,
     # el de la página no es muy limpio") ──
@@ -615,6 +618,77 @@ async def correr():
     check("'pasta no toxica' sigue encontrandose sin 'no' (01/09)",
           any("PASTA" in x["nombre"].upper()
               for x in _idx01.buscar("pasta no toxica", 3)))
+
+    # ── OFERTA FLASH (01/09): una publicación por artículo, SKU en el utm ──
+    from app import conocimiento as _cono_f
+    check("sku_por_utm: flash_<sku> (01/09)",
+          _cono_f.sku_por_utm({"utm_content": "flash_7457006006001"})
+          == "7457006006001")
+    check("sku_por_utm: sku-<sku> y sku pelado (01/09)",
+          _cono_f.sku_por_utm({"utm_campaign": "sku-7457006006001"})
+          == "7457006006001"
+          and _cono_f.sku_por_utm({"c": "7457006006001"}) == "7457006006001")
+    check("sku_por_utm: campañas normales no matchean (01/09)",
+          _cono_f.sku_por_utm({"utm_campaign": "invierno2026",
+                               "utm_content": "flash_oferta"}) == "")
+    await agente.procesar("Quiero más información",
+                          ad_id="flash:7457006006001")
+    _lf = [l for l in CTX["ctx"].splitlines() if l.startswith("- SKU")]
+    check("ad flash:<sku> -> SOLO ese producto en contexto (01/09)",
+          "OFERTA FLASH" in CTX["ctx"] and len(_lf) == 1
+          and "7457006006001" in _lf[0])
+    await agente.procesar("hola", ad_id="flash:99999999")
+    check("ad flash con sku inexistente no inventa (01/09)",
+          "no está en el catálogo" in CTX["ctx"])
+
+    # "muchas gracias" NO es una búsqueda (01/09 Santiago: el corrector lo
+    # volvió "mechas" y le pasó gorros con lunares)
+    _h_grx = [{"cliente": "lamparas", "agente": "acá tenés opciones..."}]
+    for _q in ["muchas gracias", "Gracias!", "ok gracias", "genial, gracias",
+               "gracias por la atencion", "Muchísimas gracias 😊"]:
+        await agente.procesar(_q, historial=_h_grx)
+        check(f"cortesía no busca producto (01/09 Santiago): {_q!r}",
+              "solo agradece" in CTX["ctx"]
+              and not [l for l in CTX["ctx"].splitlines()
+                       if l.startswith("- SKU")])
+    for _q in ["gracias, y tenes lamparas de pie?", "muchas camperas tenes?"]:
+        await agente.procesar(_q, historial=_h_grx)
+        check(f"consulta real con cortesía sigue buscando (01/09): {_q!r}",
+              [l for l in CTX["ctx"].splitlines() if l.startswith("- SKU")])
+
+    # tienda: búsqueda sin resultados mantiene la página con aviso elegante
+    from app import main as _main01
+    _r0 = await _main01.catalogo_dinamico("zzzznoexiste")
+    _h0 = _r0.body.decode()
+    check("tienda sin resultados: página entera + aviso (01/09)",
+          _r0.status_code == 200 and "No encontramos resultados" in _h0
+          and "Ver todas las categorías" in _h0
+          and "Buscá un producto" in _h0)
+
+    # links del buscador sin palabras de charla (hallazgo del monitor 01/09:
+    # "tu web esta caida" armó /c/pelo%20tu%20web%20caida con 200 random)
+    _ixw = productos.indice_actual()
+    check("termino_web filtra palabras de charla (01/09)",
+          _ixw.termino_web("pelo tu web esta caida") == "pelo"
+          and _ixw.termino_web("algo lindo para regalar") == ""
+          and "mochila" in _ixw.termino_web("michilas escolares"))
+
+    # auditoría del buscador 01/09: jerga PY que faltaba mapear
+    _ixa = productos.indice_actual()
+    check("'pava electrica' -> hervidor (01/09)",
+          any("HERVIDOR" in x["nombre"].upper()
+              for x in _ixa.buscar("pava electrica", 3)))
+    check("'pileta' -> piscina (01/09)",
+          any("PISCINA" in x["nombre"].upper()
+              for x in _ixa.buscar("pileta para niños", 4)))
+    check("'mate y bombilla' -> matero/guampa primero (01/09)",
+          any(w in _ixa.buscar("mate y bombilla", 2)[0]["nombre"].upper()
+              for w in ("GUAMPA", "MATERO", "YERBERA", "TERMO")))
+    check("'esmalte mate' sigue siendo color (01/09)",
+          "ESMALTE" in _ixa.buscar("esmalte mate negro", 1)[0]["nombre"].upper())
+    check("'foquito led' -> bombillas (01/09)",
+          any("BOMBILLA" in x["nombre"].upper() or "FOCO" in x["nombre"].upper()
+              for x in _ixa.buscar("foquito led", 3)))
 
     # ── MONITOREO 01/09 ──
     # "me sale totalmente otra cosa en el link que me mandan" (queja de Camila)

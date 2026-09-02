@@ -17,6 +17,19 @@ sección) y no traen un SKU.
 | prendas_invierno | OFERTA DE PRENDAS — ropa de invierno | sección | — | Sección **Prendas de invierno** (camperas, buzos, abrigos, frazadas). NO está en el catálogo chico: preguntar qué busca (tipo de prenda, talle) y ofrecer opciones del catálogo grande. | clave UTM: utm_campaign=prendas_invierno (31/08) |
 | https://www.facebook.com/ShoppingAsiapy/posts/122115226179299504 | BOTINES GRASEP (publicación FB) | sección (línea) | toda la línea IRUN | Botines GRASEP / línea **IRUN**: regla fija de calzados. | identificada por el chat de Jorge 31/08; el cliente pega este link |
 
+## OFERTA FLASH — una publicación por artículo (01/09)
+NO hace falta una fila por publicación. Regla automática del cerebro:
+si el link del anuncio lleva `utm_content=flash_<SKU>` (también vale
+`sku_<SKU>` o el SKU pelado), el bot identifica el artículo EXACTO del
+catálogo: saluda nombrándolo, da el precio y cierra — sin listas ni búsqueda.
+- Link tipo para cada pauta flash:
+  `https://wa.me/<numero>?utm_source=fb&utm_medium=paid&utm_campaign=oferta_flash&utm_content=flash_<SKU>`
+  (en el Administrador de anuncios: parámetros de URL, campo key/value).
+- Para PUBLICACIONES ORGÁNICAS (sin utm): poner en el texto/botón un link
+  de WhatsApp con mensaje precargado que incluya el SKU, p. ej.
+  `https://wa.me/<numero>?text=Hola!%20Quiero%20la%20OFERTA%20FLASH%20SKU%20<SKU>`
+  — el bot ya extrae el SKU del mensaje y confirma el producto exacto.
+
 ## Cómo se completa a futuro
 - **ID anuncio:** el de Meta Ads (lo captura Kommo cuando el chat entra desde un
   anuncio click-to-WhatsApp).

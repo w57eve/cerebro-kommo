@@ -88,6 +88,22 @@ def ad_por_utm(utms: dict) -> str:
     return ""
 
 
+def sku_por_utm(utms: dict) -> str:
+    """OFERTA FLASH (01/09): una publicación por artículo. En el link de cada
+    pauta va utm_content=flash_<SKU> (o sku_<SKU>) y el bot resuelve el
+    producto EXACTO sin mapear cada publicación a mano. También acepta un
+    valor que sea directamente el SKU (8-14 dígitos)."""
+    import re as _re
+    for v in (utms or {}).values():
+        v = str(v or "").strip().lower()
+        m = _re.search(r"(?:flash|sku|art|articulo)[_\-]?(\d{8,14})\b", v)
+        if m:
+            return m.group(1)
+        if _re.fullmatch(r"\d{8,14}", v):
+            return v
+    return ""
+
+
 def contexto_anuncio(ad_id: str) -> str:
     """Texto corto para inyectar al LLM según de qué anuncio vino el chat."""
     if not ad_id:

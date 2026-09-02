@@ -521,7 +521,24 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
         contexto_link = ""
     # los URLs no son palabras: fuera del texto que se busca/detecta
     mensaje = _URL_RE.sub(" ", mensaje).strip() or mensaje
-    ctx_ad = conocimiento.contexto_anuncio(ad_id)
+    # OFERTA FLASH (01/09): ad_id "flash:<sku>" = publicación individual de
+    # UN artículo (el SKU vino en el utm del link). Producto exacto, directo.
+    if ad_id.startswith("flash:"):
+        _sku_fl = ad_id.split(":", 1)[1]
+        _it_fl = await productos.por_sku(_sku_fl)
+        if _it_fl:
+            ctx_ad = ("El cliente escribe por una publicación OFERTA FLASH "
+                      "de ESTE artículo exacto:\n" + productos.a_texto(_it_fl)
+                      + "\nSaludá confirmando el artículo por su nombre, dale "
+                      "el precio y preguntá cuántos quiere o su talle/color "
+                      "si aplica. NO busques otra cosa ni ofrezcas listas: es "
+                      "ESTE producto.\n")
+        else:
+            ctx_ad = ("El cliente viene de una publicación OFERTA FLASH pero "
+                      "el SKU no está en el catálogo: preguntale qué artículo "
+                      "vio (o pedile una captura) sin inventar nada.\n")
+    else:
+        ctx_ad = conocimiento.contexto_anuncio(ad_id)
     _ad_calzado = bool(ctx_ad) and any(
         w in ctx_ad.upper() for w in ("IRUN", "CALZAD", "GRASEP", "CROCS",
                                       "BOTIN", "CHAMPION"))
@@ -562,6 +579,17 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             "sobre ESO (mirá la foto descripta y la conversación previa). Si "
             "no queda claro a qué se refiere, UNA repregunta o derivá. "
             "PROHIBIDO ofrecer productos sueltos del catálogo acá.\n")
+
+    # "muchas gracias", "ok perfecto", "genial": CORTESÍA de cierre en medio
+    # de la charla — no es un producto (01/09 Santiago: "muchas gracias" fue
+    # al buscador y el corrector lo volvió "mechas": gorros con lunares).
+    _cortesia = (bool(historial) and reglas.solo_saludo(mensaje)
+                 and not productos.extraer_sku(mensaje))
+    if _cortesia:
+        contexto += (
+            "El cliente solo agradece o cierra con cortesía. Respondé BREVE "
+            "y cálido (¡de nada! cualquier cosa escribinos 😊) SIN ofrecer "
+            "productos ni listas: no hay nada que buscar acá.\n")
 
     # "no encontré", "no", "no me sale", "no hay nada": el cliente da
     # FEEDBACK de que lo anterior no le funcionó — NO es un producto
@@ -840,6 +868,8 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
         else:
             contexto += (f"El SKU {sku} no está en el catálogo. No afirmes que "
                          "existe; ofrecé buscarlo o derivar.\n")
+    elif _cortesia:
+        pass   # "muchas gracias": cortesía, no producto (01/09 Santiago)
     elif _feedback_no:
         pass   # "no encontré/no me sale": feedback, no producto (01/09)
     elif _deixis:

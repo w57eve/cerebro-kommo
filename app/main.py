@@ -385,7 +385,14 @@ async def _responder_charla(lead_id: str):
             from . import conocimiento as _cono2
             _utms = await kommo_api.utms_de_lead(lead_id)
             if _utms:
-                _ad2 = _cono2.ad_por_utm(_utms)
+                # OFERTA FLASH (01/09): utm con flash_<SKU> -> producto exacto
+                _skuf = _cono2.sku_por_utm(_utms)
+                if _skuf:
+                    ch["ad_id"] = f"flash:{_skuf}"
+                    ch["pauta"] = True
+                    print(f"[UTM] lead={lead_id} OFERTA FLASH sku={_skuf} "
+                          f"({_utms})", flush=True)
+                _ad2 = "" if _skuf else _cono2.ad_por_utm(_utms)
                 if _ad2:
                     ch["ad_id"] = _ad2
                     ch["pauta"] = True
@@ -960,11 +967,22 @@ async def catalogo_dinamico(termino: str, cat: str = ""):
     _con_foto = [x for x in items if _bq2.it_foto(x)]
     if len(_con_foto) >= 2:
         items = _con_foto
-    if not items:
-        return HTMLResponse(
-            "<h3>No encontramos resultados para esa búsqueda.</h3>",
-            status_code=404)
     _tit = f"“{termino}”" + (f" en {cat}" if cat else "")
+    if not items:
+        # 01/09: antes devolvía un <h3> pelado (la "página se borraba").
+        # Ahora queda la tienda entera con un aviso elegante bajo el buscador.
+        import html as _h2
+        return await _pagina_catalogo(
+            [], _tit,
+            f"No encontramos resultados para “{_h2.escape(termino)}”"
+            + (f" en {_h2.escape(cat)}" if cat else "") + ". "
+            "Probá con otra palabra (o revisá si hay algún error de "
+            "tipeo), buscá sin filtro de categoría, o navegá por "
+            "secciones desde la portada.",
+            query=termino, cat=cat,
+            extra_abajo=("<div style='text-align:center;padding:26px 20px "
+                         "60px'><a class='ayuda' href='/tienda'>🛍️ Ver "
+                         "todas las categorías</a></div>"))
     return await _pagina_catalogo(
         items, _tit,
         "Tocá \"➕ Agregar\" para juntar varios productos (el carrito te "

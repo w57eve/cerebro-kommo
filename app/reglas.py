@@ -38,6 +38,13 @@ _IGNORAR = {
     "amigo", "amiga", "senor", "senora", "seno", "estimado", "estimada",
     "hello", "hi", "ola", "y", "el", "la", "me", "puedo", "podria",
     "get", "started",   # botón "Get Started" de Facebook (31/08)
+    # cierres/agradecimientos (01/09 Santiago: "muchas gracias" fue al
+    # buscador y el corrector lo volvió "mechas" -> gorros con lunares)
+    "muchas", "muchisimas", "muchisima", "grasias", "grasia", "gracia",
+    "genial", "perfecto", "excelente", "buenisimo", "buenisima", "joya",
+    "dale", "oka", "okey", "okk", "vale", "igualmente", "atencion",
+    "amable", "amabilidad", "chau", "adios", "hasta", "luego", "info",
+    "informacion",
 }
 
 

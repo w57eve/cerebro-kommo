@@ -121,6 +121,10 @@ _GRUPOS = [
     # monitoreo 01/09: "pescera"/"pescers" (typo de pecera) traía cañas de
     # pescar; en catálogo figura "pecera"
     ["pecera", "pescera", "pesera", "pescers"],
+    # auditoría 01/09: cómo pide el cliente vs cómo se cargó
+    ["pava", "hervidor", "hervidora"],         # "pava eléctrica" = hervidor
+    ["pileta", "piscina"],                     # PY dice pileta; carga: piscina
+    ["foco", "foquito", "bombilla"],           # foquito/bombilla LED
     ["turbante", "gorro turbante"],
     ["peluche", "muñeco de peluche"],
     ["juguete", "jugueteria"],
@@ -215,7 +219,14 @@ _META = {"foto", "fotos", "imagen", "imagene", "imagen", "fotografia",
          "este", "esta", "ese", "esa", "est", "aquel", "opcion", "opcione",
          "modelo", "informacion", "info", "precio",
          # 31/08: "hasta 350mil gs" metía "gs" al término del catálogo
-         "gs", "mil", "guaranies", "hasta"}
+         "gs", "mil", "guaranies", "hasta",
+         # 01/09 (hallazgo del monitor): "tu web esta caida" armó el link
+         # /c/pelo%20tu%20web%20caida con 200 modelos random — palabras de
+         # charla/quejas que casualmente existen en nombres de productos
+         "tu", "web", "pagina", "link", "caida", "caido", "cae", "carga",
+         "algo", "cosa", "cosas", "lindo", "linda", "lindas", "lindos",
+         "bonito", "bonita", "barato", "barata", "bueno", "buena", "se",
+         "regalar", "regalo", "sale", "salio"}
 
 
 def termino_web(texto: str) -> str:
@@ -230,7 +241,7 @@ def termino_web(texto: str) -> str:
         if c not in vistos:
             vistos.add(c)
             out.append(c)
-    return " ".join(out[:4])
+    return " ".join(out[:3])
 
 
 # ── HIPERÓNIMOS DIRIGIDOS (mapa del catálogo 30/08) ────────────────────────
@@ -244,6 +255,9 @@ _HIPER = {
     # ("JUGUETES PARA GATOS PETS"): perro/gato NO expanden a pets, solo
     # mascota lo hace (si no, buscar perro traía cosas de gato).
     "perro":   {"mascota", "can", "cachorro"},
+    # auditoría 01/09: "mate" del cliente = tomar mate (matero/yerbera/guampa),
+    # dirigido para no contaminar "esmalte mate" (color)
+    "mate":    {"matero", "yerbera", "guampa"},
     "perfume": {"perf"},
     "gato":    {"mascota", "gatito"},
     "gatito":  {"gato", "mascota"},
@@ -370,7 +384,7 @@ class Indice:
             if emitir not in vistos:
                 vistos.add(emitir)
                 out.append(emitir)
-        return " ".join(out[:4])
+        return " ".join(out[:3])
 
     def buscar(self, consulta, limite=4):
         q = [w for w in tokenizar(consulta) if w not in STOP]

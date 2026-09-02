@@ -548,6 +548,25 @@ reviva para el salto de cobertura (~14.800 SKUs nuevos con foto).
   datos al 29/08). Los SKUs cargados despues del 29/08 no aparecen hasta
   que PORTA reviva y se corra sincronizar.py / publicar_rapido.bat.
 
+## Auditoría 02/09 (pedida por el dueño): monitores + buscador + tienda
+AUDITORÍA DE LOS ARREGLOS DE LOS MONITORES — todos verificados funcionando:
+"mandan a/hasta/por" (la queja de Camila ya no cae en FAQ envíos), grupo
+pecera/pescera, dnd, typos de dirección. Su pendiente grande (links /c con
+frases de charla: "tu web esta caida" -> /c/pelo%20tu%20web%20caida) quedó
+RESUELTO: _META ahora filtra palabras de charla/quejas y el término del link
+se limita a 3 palabras ("pelo tu web esta caida" -> /c/pelo).
+INCIDENTE SANTIAGO DELVALLE: "muchas gracias" iba al buscador y el corrector
+lo volvía "mechas" (gorros con lunares). Arreglo: cortesía con historial =
+respuesta cálida sin búsqueda (+_IGNORAR ampliado con cierres/typos).
+TIENDA: búsqueda sin resultados ya no "borra la página": queda la tienda
+entera con aviso elegante bajo el buscador + botón a categorías.
+BUSCADOR (auditoría de 30 consultas reales): calidad alta; se agregaron
+pava=hervidor, pileta=piscina, foquito/foco=bombilla y el dirigido
+mate->matero/yerbera/guampa (sin tocar "esmalte mate"). "panchero": 0
+productos en catálogo (no es bug). Suite: 203 checks verdes.
+NOTA para el monitor programado: /aprendizaje pide clave; si se quiere que
+el monitor lo lea, agregar ?clave=... en su tarea (decisión del dueño).
+
 ## Monitoreo 01/09/2026 (mañana)
 - 135 mensajes, 5 derivados (3,7%), 0 fallbacks. Catálogo OK (49.536 prod, fetch 200). Suite 136/136.
 - Ajusté: (1) reglas.py — "mandan" suelto en FAQ envíos capturaba "el link que me mandan" (queja de Camila, lead 24919560) y respondía envíos: ahora "mandan a/hasta/por". (2) busqueda.py — grupo pecera/pescera/pesera (typo traía cañas de pescar). +5 tests. Falta doble clic a actualizar_github.bat.
@@ -557,3 +576,13 @@ reviva para el salto de cobertura (~14.800 SKUs nuevos con foto).
 - Suite de regresión: ✅ 158 ok, sin regresiones (hubo que instalar httpx en el sandbox, no afecta prod).
 - NO pude revisar /aprendizaje ni /diag: el fetch web quedó bloqueado por política del entorno y el navegador denegó cerebro-kommo.onrender.com sin usuario presente para aprobar. Sin datos de intercambios reales ni verificación de catálogo en esta corrida.
 - Sin cambios de código. Pendiente de la corrida anterior sigue: doble clic a actualizar_github.bat y filtro de palabras no-producto en links del buscador.
+
+## Monitoreo 01/09/2026 (noche)
+- Suite de regresión: ✅ 163 ok, sin regresiones. Último deploy 13:11; hay cambios sin subir (agente.py, conocimiento.py, main.py, mapa-anuncios.md, tests) — falta doble clic a actualizar_github.bat.
+- Otra vez sin /aprendizaje ni /diag: web_fetch bloqueado y navegador denegó cerebro-kommo.onrender.com (sin usuario para aprobar). Sin datos de intercambios reales ni chequeo de catálogo. Sugerencia: aprobar el dominio en el navegador integrado una vez para que las corridas automáticas puedan leerlo.
+- Sin cambios de código.
+
+## Monitoreo 01/09/2026 21:10 (corrida programada)
+- Suite de regresión: ✅ 163 ok, sin regresiones.
+- /diag OK por Chrome: 49.536 productos, fetch_http 200. /aprendizaje devuelve {"error":"clave"}: CLAVE_PRUEBA quedó activa en Render y la clave no está en el repo, así que el monitor automático no puede leer intercambios. Para habilitarlo: pasar la clave en la URL de la tarea programada (/aprendizaje?clave=XXXX) o eximir /aprendizaje de CLAVE_PRUEBA en main.py.
+- Sin cambios de código. Sigue pendiente: doble clic a actualizar_github.bat y filtro de palabras no-producto en links del buscador.
