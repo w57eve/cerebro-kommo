@@ -447,6 +447,37 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
 
     saludo = reglas.es_saludo(mensaje)
 
+    def _resumen_hilo(hist):
+        """(sku, resumen) del último producto concreto del hilo — para que la
+        vendedora reciba QUÉ quería el cliente (02/09: llegaban derivaciones
+        'acepta derivación' peladas, sin SKU ni producto)."""
+        sku_h, prod, pedido = "", "", ""
+        for h in reversed(list(hist or [])):
+            ag = h.get("agente") or ""
+            cli = h.get("cliente") or ""
+            if not sku_h:
+                sku_h = (productos.extraer_sku(cli)
+                         or productos.extraer_sku(ag) or "")
+            if not prod:
+                m = _re.search(r"\*([^*\n]{4,60})\*\s*[—–-]+\s*[\d.,]+\s*gs",
+                               ag)
+                if m:
+                    prod = m.group(1).strip()
+            if not pedido and "(foto del cliente" not in cli:
+                _tk = [t for t in busqueda.tokenizar(cli)
+                       if t not in busqueda.STOP]
+                if len(_tk) >= 2:
+                    pedido = cli.strip()[:80]
+            if sku_h and prod and pedido:
+                break
+        partes = []
+        if prod:
+            partes.append(prod)
+        if pedido and (not prod
+                       or pedido.lower()[:25] not in prod.lower()):
+            partes.append("pedía: " + pedido)
+        return sku_h, " | ".join(partes)
+
     # ACEPTÓ la derivación ofrecida ("¿te paso con un vendedor?" -> "sí/dale/
     # por favor"): derivar YA, directo y sin IA. Va ANTES que todo porque
     # "por favor" caía en el filtro de saludos y repreguntaba.
@@ -456,8 +487,11 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
             r"|obvio|de una|hacele|hace(lo)?)[.!\s]*", _m0)
             and any(w in (historial[-1].get("agente") or "").lower()
                     for w in ("vendedor", "asesor", "te paso con", "te derivo"))):
-        d = vendedores.mensaje_derivacion(consulta="acepta derivación",
-                                          lead_id=lead_id)
+        _sku_h, _res_h = _resumen_hilo(historial)
+        d = vendedores.mensaje_derivacion(
+            sku=_sku_h,
+            consulta=(_res_h or "acepta derivación (sin producto en el hilo)"),
+            lead_id=lead_id)
         return {"texto": "¡De una! " + d["texto"], "derivar": True,
                 "candidatos": None}
 
@@ -476,6 +510,12 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
     if r and r["tipo"] == "derivar":
         sku = productos.extraer_sku(mensaje) or ""
         _cons_r = mensaje[:180]
+        # sin SKU en el mensaje: rescatar el producto del hilo (02/09)
+        if not sku and historial:
+            _sku_h, _res_h = _resumen_hilo(historial)
+            sku = sku or _sku_h
+            if _res_h:
+                _cons_r = mensaje[:100] + " — hilo: " + _res_h
         # lead de OFERTA FLASH: el vendedor recibe el producto exacto (02/09)
         if not sku and ad_id.startswith("flash:"):
             sku = ad_id.split(":", 1)[1]
@@ -1292,13 +1332,20 @@ async def procesar(mensaje: str, ad_id: str = "", nombre: str = "",
                 # de la publicación (nombre + link del catálogo), no solo el
                 # mensaje suelto del cliente
                 _cons_d = mensaje[:180]
+                _sku_d = sku or _flash_sku
                 if _flash_it:
                     _cons_d = ("OFERTA FLASH: "
                                + (_flash_it.get("nombre") or "")[:60]
                                + (f" — {_flash_link}" if _flash_link else "")
                                + " | " + mensaje[:100])
+                elif not sku and historial:
+                    # sin SKU ni pauta: rescatar el producto del hilo (02/09)
+                    _sku_h2, _res_h2 = _resumen_hilo(historial)
+                    _sku_d = _sku_d or _sku_h2
+                    if _res_h2:
+                        _cons_d = mensaje[:100] + " — hilo: " + _res_h2
                 d = vendedores.mensaje_derivacion(
-                    sku=(sku or _flash_sku), consulta=_cons_d,
+                    sku=_sku_d, consulta=_cons_d,
                     lead_id=lead_id)
                 texto = (texto + "\n\n" + d["texto"]).strip()
                 return {"texto": texto, "derivar": True, "candidatos": len(sugeridos)}

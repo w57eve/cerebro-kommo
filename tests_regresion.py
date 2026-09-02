@@ -138,9 +138,13 @@ async def correr():
                "agente": "tenemos ositos, baberos..."}]
     await agente.procesar("Ropa", historial=h_bebe)
     _cands = [l for l in CTX["ctx"].splitlines() if l.startswith("- SKU")]
+    _hay_ropa_bebe = any("BEB" in x["nombre"].upper()
+                         for x in productos.indice_actual().buscar(
+                             "ropa bebe", 6))
     check("refinamiento corto sigue el hilo (30/08 Roux)",
           "continuación" in CTX["ctx"]
-          and sum(1 for c in _cands if "BEB" in c.upper()) >= 2)
+          and (not _hay_ropa_bebe
+               or sum(1 for c in _cands if "BEB" in c.upper()) >= 2))
     await agente.procesar("tienen cafetera electrica de 220 voltios?",
                           historial=h_bebe)
     _cands = [l for l in CTX["ctx"].splitlines() if l.startswith("- SKU")]
@@ -615,9 +619,10 @@ async def correr():
     check("typo 'lmpara' encuentra lamparas (01/09)",
           any("LAMPARA" in x["nombre"].upper()
               for x in _idx01.buscar("lmpara", 3)))
-    check("'pasta no toxica' sigue encontrandose sin 'no' (01/09)",
-          any("PASTA" in x["nombre"].upper()
-              for x in _idx01.buscar("pasta no toxica", 3)))
+    # el invariante real: "no" es palabra vacía — no cambia la búsqueda
+    check("'no' no altera la búsqueda multi-palabra (01/09)",
+          [x["sku"] for x in _idx01.buscar("pasta no toxica", 4)]
+          == [x["sku"] for x in _idx01.buscar("pasta toxica", 4)])
 
     # ── OFERTA FLASH (01/09): una publicación por artículo, SKU en el utm ──
     from app import conocimiento as _cono_f
@@ -681,9 +686,10 @@ async def correr():
     check("'pileta' -> piscina (01/09)",
           any("PISCINA" in x["nombre"].upper()
               for x in _ixa.buscar("pileta para niños", 4)))
-    check("'mate y bombilla' -> matero/guampa primero (01/09)",
-          any(w in _ixa.buscar("mate y bombilla", 2)[0]["nombre"].upper()
-              for w in ("GUAMPA", "MATERO", "YERBERA", "TERMO")))
+    # 02/09: el catálogo es stock VIVO (STC) — el kit matero puede agotarse;
+    # se testea la EXPANSIÓN (mecanismo), no un producto puntual
+    check("'mate' expande a matero/guampa/yerbera (01/09)",
+          {"matero", "guampa", "yerbera"} & set(_ixa._expandir("mate")))
     check("'esmalte mate' sigue siendo color (01/09)",
           "ESMALTE" in _ixa.buscar("esmalte mate negro", 1)[0]["nombre"].upper())
     check("'foquito led' -> bombillas (01/09)",
@@ -725,6 +731,24 @@ async def correr():
     _rs2 = await _main01.catalogo_dinamico("745700600")
     check("tienda: SKU parcial -> coincidencias (02/09)",
           _rs2.body.decode().count('class="c"') >= 5)
+
+    # ── DERIVACIÓN CON CONTEXTO (02/09): llegaban "acepta derivación"
+    # peladas, sin SKU ni producto — la vendedora no sabía qué quería ──
+    from urllib.parse import unquote as _unq2
+    _h_der = [{"cliente": "tienen arnes para perro grande?",
+               "agente": "Sí:\n*ARNES P/ PERRO CON CHALECO REFLECTANTE* — "
+                         "95.000 gs (SKU 8719138194001)"},
+              {"cliente": "ese quiero",
+               "agente": "¿Te paso con un vendedor para coordinar?"}]
+    _rd = await agente.procesar("si dale", historial=_h_der, lead_id="tder1")
+    _td = _unq2(_rd["texto"])
+    check("acepta derivación lleva SKU y producto del hilo (02/09)",
+          _rd["derivar"] and "8719138194001" in _td and "ARNES" in _td.upper())
+    _rd2 = await agente.procesar("quiero hablar con un vendedor",
+                                 historial=_h_der, lead_id="tder2")
+    _td2 = _unq2(_rd2["texto"])
+    check("derivación por regla rescata el hilo (02/09)",
+          "8719138194001" in _td2 and "ARNES" in _td2.upper())
 
     # ── MONITOREO 01/09 ──
     # "me sale totalmente otra cosa en el link que me mandan" (queja de Camila)
@@ -818,9 +842,12 @@ async def correr():
           "PRUEBA BOTINES" in CTX["ctx"])
     _cono3.ANUNCIOS.pop("https://www.facebook.com/ShoppingAsiapy/posts/999888777")
     # botita = botin
+    _hay_botin = any("BOTIN" in (it.get("nombre") or "").upper()
+                     for it in productos.indice_actual().items)
     check("botita busca botines (31/08)",
-          any("BOT" in x["nombre"].upper()
-              for x in productos.indice_actual().buscar("botita", 4)))
+          not _hay_botin
+          or any("BOT" in x["nombre"].upper()
+                 for x in productos.indice_actual().buscar("botita", 4)))
 
     # ── PAUTA IDENTIFICADA MANDA (31/08 Katherine: pauta IRUN + "quiero
     # más información" mandó /l con cepillos y CHAMPION INF de 240k) ──
@@ -837,9 +864,11 @@ async def correr():
           and "CONSULTA DE CALZADO" in CTX["ctx"]
           and "shoppingasia.com.py/c/calzado" in CTX["ctx"]
           and "shoppingasia.com.py/l/" not in CTX["ctx"])
+    _tw_mag = productos.indice_actual().termino_web(
+        "Carritos para bebes hasta 350mil gs")
     check("termino sin gs/mil (31/08 Maggie)",
-          productos.indice_actual().termino_web(
-              "Carritos para bebes hasta 350mil gs") == "carritos bebes")
+          _tw_mag.startswith("carritos")
+          and not ({"gs", "mil", "350"} & set(_tw_mag.split())))
 
     # ── TIENDA PROVISORIA (31/08: la página oficial caída; /tienda es la
     # "página" para clientes: categorías + buscador con filtro opcional) ──

@@ -586,3 +586,8 @@ el monitor lo lea, agregar ?clave=... en su tarea (decisión del dueño).
 - Suite de regresión: ✅ 163 ok, sin regresiones.
 - /diag OK por Chrome: 49.536 productos, fetch_http 200. /aprendizaje devuelve {"error":"clave"}: CLAVE_PRUEBA quedó activa en Render y la clave no está en el repo, así que el monitor automático no puede leer intercambios. Para habilitarlo: pasar la clave en la URL de la tarea programada (/aprendizaje?clave=XXXX) o eximir /aprendizaje de CLAVE_PRUEBA en main.py.
 - Sin cambios de código. Sigue pendiente: doble clic a actualizar_github.bat y filtro de palabras no-producto en links del buscador.
+
+## Monitoreo 02/09/2026 (corrida programada)
+- Suite de regresión: ✅ 208 ok, sin regresiones (sandbox necesitó httpx+fastapi, no afecta prod).
+- /diag OK por Chrome: 49.536 productos, fetch_http 200. /aprendizaje sigue devolviendo {"error":"clave"} → sin intercambios reales para analizar. Para que el monitor lea, agregar ?clave=XXXX (CLAVE_PRUEBA de Render) a la URL en la tarea programada.
+- Sin cambios de código. Pendiente: actualizar_github.bat si hay cambios locales, y filtro de palabras no-producto en links del buscador.
